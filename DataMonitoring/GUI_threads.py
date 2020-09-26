@@ -48,11 +48,10 @@ class SerialThread(QRunnable):
 
         # ---------- Serial Config ----------------------------------
 
+        self.sensor_nums = sensor_nums
         self.graph_titles = {'low_pt':['Lox Tank', 'Propane Tank', 'Lox Injector', 'Propane Injector'],'high_pt':['Pressurant Tank']}
-        self.sensor_types = ['low_pt']# 'high_pt', 'temp']
+        self.sensor_types = ['low_pt','high_pt']# 'high_pt', 'temp']
 
-        self.numLowPressure = 3
-        self.numHighPressure = 1
         self.ser = None
 
         self.valve_signals = valve_signals
@@ -61,30 +60,28 @@ class SerialThread(QRunnable):
 
         # ---------- Display Config ---------------------------------
 
-        self.graphs = graphs
-        self.canvas = graphs["low_pt"][0]
-
-        # I think this is irrelevant now?
+        # generate data to set base line on eacg graph
         n_data = 400
-        self.xdata = list(range(n_data))
-        self.ydata = [0 for i in range(n_data)]#[random.randint(0, 10) for i in range(n_data)]
+        xdata = list(range(n_data))
+        ydata = [0 for i in range(n_data)]#[random.randint(0, 10) for i in range(n_data)]
 
         #Initialize Plot
         # plot_refs = self.canvas.axes.plot(self.xdata, self.ydata, 'b')
         # self._plot_ref = plot_refs[0]
 
         # Create canvases based on the number of sensors that are actually in use
-        self.low_plot_ref_list = []#[self._plot_ref]
+        self.plot_ref_dict = {} #[self._plot_ref]
         self.canvas_dict = {}
 
         for sensor in self.sensor_types:
             self.canvas_dict[sensor] = []
+            self.plot_ref_dict[sensor] = []
             for i in range(len(graphs[sensor])):
                 canvas = graphs[sensor][i]
                 self.canvas_dict[sensor].append(canvas)
                 # Get plot reference that can be used to update graph later
-                plot_refs = canvas.axes.plot(self.xdata, self.ydata, 'b')
-                self.low_plot_ref_list.append(plot_refs[0])
+                plot_refs = canvas.axes.plot(xdata, ydata, 'b')
+                self.plot_ref_dict[sensor].append(plot_refs[0])
                 canvas.axes.set_title(self.graph_titles[sensor][i])
 
 
@@ -102,7 +99,7 @@ class SerialThread(QRunnable):
 
         NUMDATAPOINTS = 400
         fail_num = 15
-        should_print = False
+        should_print = True
 
         print("Starting")
 
@@ -150,7 +147,7 @@ class SerialThread(QRunnable):
             if (fails == fail_num):
                 self.stop_thread("Connection Lost")
                 return
-        numLowSensors = self.numLowPressure
+        numLowSensors = self.sensor_nums['low_pt']
         byteNum = (str(numLowSensors) + "\r\n").encode('utf-8')
         print("write low sensor nums: {}".format(ser.write(byteNum)))
 
@@ -161,44 +158,27 @@ class SerialThread(QRunnable):
             if time.time() - start > 1.5:
                 start = time.time()
                 print("looking for high pressure input")
-        numHighSensors = self.numHighPressure
+        numHighSensors = self.sensor_nums['high_pt']
         byteNum = (str(numHighSensors)+"\r\n").encode('utf-8')
         print("write high sensor nums: {}".format(ser.write(byteNum)))
 
-        sensors = numLowSensors + numHighSensors
+        total_sensors = numLowSensors + numHighSensors #TODO: add in temp sensor
         #sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
         print(ser.readline().decode("utf-8")) # There are x low PTs and x high PTs.
         headers = ser.read_until().decode("utf-8") # low1, low2, low3, high1.....
         headerList = headers.split(",")
         print(headerList)
 
-        print("num sensors: {}".format(sensors))
-        data = [[] for i in range(sensors)]
-        toDisplay = [[] for i in range(sensors)]
-        #
-        # plt.ion()
-        # fig, ax = plt.subplots(2, max(numLowSensors, numHighSensors))
-        # if max(numLowSensors, numHighSensors) == 1:
-        #     ax = np.reshape(ax, (-1, 1))
-        # plt.show()
-        # print(np.shape(ax))
-        # plots = []
-        #
-        # for num in range(numLowSensors):
-        #     ax[0,num].set_title(headerList[num])
-        #     plot, = ax[0,num].plot(data[num])
-        #     plots.append(plot)
-        #
-        # for num in range(numHighSensors):
-        #     ax[1,num].set_title(headerList[num+numLowSensors])
-        #     plot, = ax[1,num].plot(data[num+numLowSensors])
-        #     plots.append(plot)
-        #
+        print("num sensors: {}".format(total_sensors))
+        data_dict = {}
+        toDisplay_dict = {}
+        for sensor in self.sensor_types:
+            data_dict[sensor] = [[] for i in range(self.sensor_nums[sensor])]
+            toDisplay_dict[sensor] = [[] for i in range(total_sensors)]
+
         with open(self.filename,"a") as f:
             headers = "time," + headers
             f.write(headers+"\n")
-
-        plots = self.low_plot_ref_list #[self._plot_ref]
 
         ser.write("0\r\n".encode('utf-8'))
 
@@ -229,7 +209,7 @@ class SerialThread(QRunnable):
 
                 if values[0] == '':
                     values[0] = str(last_first_value);
-                if len(values) < sensors:
+                if len(values) < total_sensors:
                     print("not enough data, continuing")
                     continue
                 last_values = values
@@ -244,40 +224,61 @@ class SerialThread(QRunnable):
                     toWrite = str(time.time())+"," + ",".join(values)+"\n"
                     fe.write(toWrite)
                     writer = csv.writer(fe,delimiter=",")
-                    # writer.writerow(np.array([time.time(),values]).flatten())
-                # print("Repeat: {}".format(repeat))
 
-                for i in range(len(plots)):  #TODO: CHANGE BACK range(sensors):
-                    data[i].append(float(values[i]))
-                    toDisplay[i] = data[i][-NUMDATAPOINTS:]
-                    if should_print:
-                        print(len(data[i]))
-                        print(len(toDisplay[i]))
 
-                    if display_all:
-                        plots[i].set_ydata(data[i])
-                        plots[i].set_xdata(range(len(data[i])))
-                    else:
-                        plots[i].set_ydata(toDisplay[i])
-                        plots[i].set_xdata(range(len(toDisplay[i])))
-                    # else:
-                    #     self.ydata = [0 for i in range(400-len(toDisplay[i]))].extend[toDisplay[i]]
-                    #     plots[i].set_ydata(self.ydata)
+                #for sensor in self.sensor_types:
+                sensor = ''
+                for i in range(len(values)):
+                    # At the start of each series of sensor values, change sensor type & reset j
+                    if i == 0:
+                        sensor = 'high_pt'
+                        j = 0
+                    elif i == 1:
+                        sensor = 'low_pt'
+                        j = 0
+                    # elif: i == 5:
+                    #     pass #TODO: add in for temperature sensors
 
-                # original for 1
+                    # if the value is -1, that means there is no data for that sensor
+                    # if j >= self.sensor_nums[sensor], that means not all sensor are being used
+                    if values[i] != -1 and j < self.sensor_nums[sensor]:
+                        data = data_dict[sensor]
+                        toDisplay = toDisplay_dict[sensor]
+                        plots = self.plot_ref_dict[sensor]
+
+                        data[j].append(float(values[i]))
+                        toDisplay[j] = data[j][-NUMDATAPOINTS:]
+                        if should_print:
+                            print(len(data[j]))
+                            print(len(toDisplay[j]))
+                            print("Sensor: {} Index: {}".format(sensor,j))
+
+                        if display_all:
+                            plots[j].set_ydata(data[j])
+                            plots[j].set_xdata(range(len(data[j])))
+                        else:
+                            plots[j].set_ydata(toDisplay[j])
+                            plots[j].set_xdata(range(len(toDisplay[j])))
+
+                    j += 1
+
+                if should_print:
+                    should_print = False
+
+                # update graph display & rescale based off data
                 if display and repeat % 2 == 0:
                     for sensor in self.sensor_types:
                         canvas_list = self.canvas_dict[sensor]
-                        for j in range(len(plots)):
+                        for i in range(len(canvas_list)):
 
-                            canvas_list[j].axes.relim()
-                            canvas_list[j].axes.autoscale_view()
+                            canvas_list[i].axes.relim()
+                            canvas_list[i].axes.autoscale_view()
 
                         # for num in range(numHighSensors):
                         #     ax[1,num].relim()
                         #     ax[1,num].autoscale_view()
 
-                            canvas_list[j].draw()
+                            canvas_list[i].draw()
                         # self.canvas.flush_events()
                     repeat = 1
                 else:

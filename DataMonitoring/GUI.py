@@ -311,7 +311,7 @@ class Entry(QMainWindow):
         label_names = ['Base Filename:', 'Folder:', 'File Path:','# Low PTs:', '# High PTs:', '# Temp Sensors:']
         label_ids = ['base_file', 'folder', 'file_path', 'low_pt', 'high_pt', 'temp']
         self.labels = {}
-        line_edit_defaults = ['waterflow', self.storage_path, '', '0', '0','0']
+        line_edit_defaults = ['waterflow', self.storage_path, '', '4', '1','0']
         self.line_edits = {}
         label_font = QFont("Lucida Grande",14, QFont.Bold)
         for i,name in enumerate(label_names):
