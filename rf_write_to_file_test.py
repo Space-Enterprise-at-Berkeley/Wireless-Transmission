@@ -1,6 +1,6 @@
 import serial
 
-rfSerial = serial.Serial(None ,9600)
+rfSerial = serial.Serial('COM3', 57600)
 rfSerial.flushInput()
 
 f = open('rf_write_to_file_test.txt', "a")
