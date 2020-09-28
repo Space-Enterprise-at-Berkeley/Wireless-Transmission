@@ -1,4 +1,6 @@
 import serial
+import serial.tools.list_ports
+import sys
 
 rfSerial = serial.Serial('COM3', 57600)
 rfSerial.flushInput()
