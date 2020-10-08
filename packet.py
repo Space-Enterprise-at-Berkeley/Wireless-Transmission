@@ -31,7 +31,7 @@ class Packet:
         sensor_id = int(data[1:i])
 
         # Calculate new checksum and compare.
-        checksum_data = data[i + 1:tracker]
+        checksum_data = data[1:tracker]
         new_sum = fletcher16(checksum_data)
         if old_sum == new_sum:
             print("Check sum succeeded")
@@ -40,9 +40,8 @@ class Packet:
 
         # Get sensor data.
         data = checksum_data.split(",")
-        data = [int(data[i]) for i in range(len(data))]
+        data = [float(data[i]) for i in range(len(data))]
         return sensor_id, data, new_sum
-
 
 def fletcher16(message):
     sum1 = 0
