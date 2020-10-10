@@ -26,10 +26,8 @@ int numLowPressure = 0;
 int numHighPressure = 0;
 
 void setup() {
-  Serial.begin(9600);
-  
-  //Setup and start RF communication
-//  RFSerial.begin(57600);
+  //If connected to RF, change baud rate from 9600 to 57600
+  Serial.begin(57600);
 
   // Setup solenoids
   valves.init();
@@ -119,6 +117,9 @@ void loop() {
       } else if (readByte == 'z') {
         Serial.print("Toggled PROP Gems: ");
         Serial.println(valves.togglePropGems());
+      } else if (readByte == 'e') {
+        Serial.print("Toggled High Pressure: ");
+        Serial.println(valves.toggleHighPressureSolenoid());
       }
     }
 
