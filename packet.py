@@ -6,17 +6,14 @@ Packet object format: integer id, integer list data, and string checksum.
 
 
 class Packet:
-    def __init__(self, data):
-        self.sensor_id, self.data, self.checksum = self.decode_message(data)
-
-    def __init__(self, id, data):
-        self.sensor_id = id
-        self.data = data
-        encoding = str(id)
-        for i in data:
-            encoding += "," + str(i)
-        checksum = fletcher16(encoding)
-        self.checksum = checksum
+    def __init__(self, data, id = None):
+        if not id:
+            self.sensor_id, self.data, self.checksum = self.decode_message(data)
+            self.encoded_message = data
+        else:
+            self.sensor_id = id
+            self.data = data
+            self.encoded_message = self.encode_data()
 
     def get_id(self):
         return self.sensor_id
@@ -31,6 +28,8 @@ class Packet:
         encoding = str(self.sensor_id)
         for i in self.data:
             encoding += "," + str(i)
+        checksum = fletcher16(encoding)
+        self.checksum = checksum
         encoding = "{" + encoding + "|" + self.checksum + "}"
         return encoding
 
