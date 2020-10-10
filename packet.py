@@ -9,6 +9,15 @@ class Packet:
     def __init__(self, data):
         self.sensor_id, self.data, self.checksum = self.decode_message(data)
 
+    def __init__(self, id, data):
+        self.sensor_id = id
+        self.data = data
+        encoding = str(id)
+        for i in data:
+            encoding += "," + str(i)
+        checksum = fletcher16(encoding)
+        self.checksum = checksum
+
     def get_id(self):
         return self.sensor_id
 
@@ -17,6 +26,13 @@ class Packet:
 
     def get_sum(self):
         return self.checksum
+
+    def encode_data(self):
+        encoding = str(self.sensor_id)
+        for i in self.data:
+            encoding += "," + str(i)
+        encoding = "{" + encoding + "|" + self.checksum + "}"
+        return encoding
 
     def decode_message(self, data):
         tracker = len(data) - 1
