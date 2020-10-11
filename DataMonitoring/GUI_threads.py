@@ -55,8 +55,12 @@ class SerialThread(QRunnable):
         self.ser = None
 
         self.valve_signals = valve_signals
-        self.filename = filename
 
+        # ---------- Recording Config ----------------------------------
+
+        self.raw_filename = filename
+        self.filename = None
+        self.save_waterflow = False
 
         # ---------- Display Config ---------------------------------
 
@@ -129,7 +133,7 @@ class SerialThread(QRunnable):
         repeat = 1
 
         # filename = input("Which file should the data be written to?\n")
-        print("Writing data to: {}".format(self.filename))
+        print("Writing raw data to: {}".format(self.raw_filename))
 
 
         fails = 0
@@ -165,8 +169,8 @@ class SerialThread(QRunnable):
         total_sensors = numLowSensors + numHighSensors #TODO: add in temp sensor
         #sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
         print(ser.readline().decode("utf-8")) # There are x low PTs and x high PTs.
-        headers = ser.read_until().decode("utf-8") # low1, low2, low3, high1.....
-        headerList = headers.split(",")
+        self.headers = ser.read_until().decode("utf-8") # low1, low2, low3, high1.....
+        headerList = self.headers.split(",")
         print(headerList)
 
         print("num sensors: {}".format(total_sensors))
@@ -176,9 +180,9 @@ class SerialThread(QRunnable):
             data_dict[sensor] = [[] for i in range(self.sensor_nums[sensor])]
             toDisplay_dict[sensor] = [[] for i in range(total_sensors)]
 
-        with open(self.filename,"a") as f:
-            headers = "time," + headers
-            f.write(headers+"\n")
+        with open(self.raw_filename,"a") as f:
+            self.headers = "time elapsed, " + self.headers
+            f.write(self.headers+"\n")
 
         ser.write("0\r\n".encode('utf-8'))
 
@@ -200,6 +204,7 @@ class SerialThread(QRunnable):
         last_first_value = 0
         last_values = [0] * 5
 
+        start = time.time()
         print("starting loop")
         while SerialThread.running:
             # try:
@@ -220,13 +225,18 @@ class SerialThread(QRunnable):
                     print("values: {}".format(values))
 
 
-                with open(self.filename,"a") as fe:
-                    toWrite = str(time.time())+"," + ",".join(values)+"\n"
+                with open(self.raw_filename,"a") as fe:
+                    toWrite = str(time.time()-start)+"," + ",".join(values)+"\n"
                     fe.write(toWrite)
                     writer = csv.writer(fe,delimiter=",")
+                if self.save_waterflow:
+                    with open(self.filename,"a") as fe:
+                        toWrite = str(time.time()-start)+"," + ",".join(values)+"\n"
+                        fe.write(toWrite)
+                        writer = csv.writer(fe,delimiter=",")
 
 
-                #for sensor in self.sensor_types:
+                # iterate through values of incoming data and add to appropriate graps datasets
                 sensor = ''
                 for i in range(len(values)):
                     # At the start of each series of sensor values, change sensor type & reset j
@@ -349,6 +359,21 @@ class SerialThread(QRunnable):
             self._plot_ref.set_xdata(self.xdata)
 
             self.canvas.draw()
+
+    def start_saving_waterflow(self, filename, metadata):
+        if self.headers:
+            print("Writing data to: {}".format(filename))
+            with open(filename,"a") as f:
+                    f.write(metadata+"\n")
+                    f.write(self.headers+"\n")
+            self.filename = filename
+            self.save_waterflow = True
+        else:
+            print("Error: data collection has not started")
+
+    def stop_saving_waterflow(self):
+        self.save_waterflow = False
+
 
 class SerialSignals(QObject):
     '''
