@@ -305,9 +305,9 @@ class MainWindow(QMainWindow):
         self.threadpool = QThreadPool()
 
         # Create Main Data Gathering Thread
-        # self.serialThread = SerialThread(self.graphs, self.sensor_nums, self.valve_signals, file_path)
-        # self.serialThread.signals.data.connect(self.beans)
-        # self.threadpool.start(self.serialThread)
+        self.serialThread = SerialThread(self.graphs, self.sensor_nums, self.valve_signals, file_path)
+        self.serialThread.signals.data.connect(self.beans)
+        self.threadpool.start(self.serialThread)
 
 
 
@@ -354,6 +354,7 @@ class MainWindow(QMainWindow):
         else:
             self.serialThread.stop_saving_waterflow()
             self.save_data_btn.setText("Start Recording")
+            self.recording_display.setHidden(True)
 
         self.recording = not self.recording
 
@@ -445,7 +446,7 @@ class Entry(QMainWindow):
     def update_full_file_path(self):
         self.file_name = full_file_name(self.line_edits['base_file'].text())
         self.folder_name = self.line_edits['folder'].text()
-        self.labels['file_path_text'].setText(os.path.join(self.folder_name,self.file_name))
+        self.labels['file_path_text'].setText(os.path.join(self.folder_name,"raw_"+self.file_name))
 
 
     def update_sensor_vals(self):

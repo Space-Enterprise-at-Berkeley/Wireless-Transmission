@@ -61,6 +61,7 @@ class SerialThread(QRunnable):
         self.raw_filename = filename
         self.filename = None
         self.save_waterflow = False
+        self.headers = None
 
         # ---------- Display Config ---------------------------------
 
@@ -231,7 +232,7 @@ class SerialThread(QRunnable):
                     writer = csv.writer(fe,delimiter=",")
                 if self.save_waterflow:
                     with open(self.filename,"a") as fe:
-                        toWrite = str(time.time()-start)+"," + ",".join(values)+"\n"
+                        toWrite = str(time.time()-self.waterflow_start)+"," + ",".join(values)+"\n"
                         fe.write(toWrite)
                         writer = csv.writer(fe,delimiter=",")
 
@@ -362,11 +363,12 @@ class SerialThread(QRunnable):
 
     def start_saving_waterflow(self, filename, metadata):
         if self.headers:
+            self.filename = "data/" + filename
+            self.waterflow_start = time.time()
             print("Writing data to: {}".format(filename))
-            with open(filename,"a") as f:
+            with open(self.filename,"a") as f:
                     f.write(metadata+"\n")
                     f.write(self.headers+"\n")
-            self.filename = filename
             self.save_waterflow = True
         else:
             print("Error: data collection has not started")
