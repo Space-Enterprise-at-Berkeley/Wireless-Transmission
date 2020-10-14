@@ -1,2 +1,7 @@
+DataMonitoring/data
+MissionControl/data
+
 Transmission/.DS_Store
 .DS_Store
+
+.ipynb_checkpoints/
