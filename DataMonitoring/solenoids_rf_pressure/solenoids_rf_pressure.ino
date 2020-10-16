@@ -31,11 +31,11 @@ void setup() {
 
   // Setup solenoids
   valves.init();
-  
-  
+
+
   Serial.println("How many low pressure sensors are connected?");
   while (Serial.available() == 0) {
-    
+
       delay(50);
       if (millis() - currTime > 2000) {
         Serial.println("waiting for low pt #...");
@@ -43,9 +43,9 @@ void setup() {
       }
     }
   numLowPressure = Serial.parseInt();
-  
+
 //  numLowPressure = Serial.read() - 48;
-  
+
 Serial.println("How many high pressure sensors are connected?");
   while (Serial.available() == 0) {
       delay(50);
@@ -81,7 +81,7 @@ Serial.println("How many high pressure sensors are connected?");
   if(numHighPressure >= 2){
     pinMode(HIGH_PRESSURE_2, INPUT);
   }
-  
+
   Serial.print("high, lox tank, propane tank, lox injector, propane injector\n");
 
   currTime = millis();
@@ -124,9 +124,9 @@ void loop() {
     }
 
     readData();
-  
+
     convertData();
-    
+
     //need some check on magnitude of reading to see if we should print data.
     if(shouldPrint){
 
@@ -147,7 +147,7 @@ void loop() {
       Serial.print(", ");
       if(numLowPressure >= 1){
         Serial.print(convertedLow1);
-        //Serial.println("Added first low PT reading; 
+        //Serial.println("Added first low PT reading;
       } else {
         Serial.print("-1");
       }
@@ -249,10 +249,16 @@ void readData(){
   }
 }
 
+
 float lowPressureConversion(int raw){
   return int(1.2258857538273733*raw - 123.89876445934394);
 }
 
 float highPressureConversion(int raw){
-    return (((float)raw / 1024) - 0.2) * 5000;
+    float
+//    return -9083 + (1.239 * pow(10,2) * raw) - 7.17 * pow(10,-1) * pow(raw, 2) + 2.29 * pow(10,-3) * pow(raw, 3);
+    float converted = (((float)raw / 1024) - 0.2) * 5000;
+    return converted;
+//    return -11.3 + 1.53 * converted - 1.0327 * pow(10, -3) * pow(converted, 2) + 1.246 * pow(10, -6) * pow(converted,3);
+
 }
