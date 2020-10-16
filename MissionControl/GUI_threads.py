@@ -1,25 +1,30 @@
+import select
+import random
+import sys
+import traceback
+import time
+import serial.tools.list_ports
+import serial
+import sensorParsing
+import csv
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 import matplotlib
 matplotlib.use('Qt5Agg')
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
 
-import time, traceback, sys, random, select
-import numpy as np
-import csv
-
-import serial
-import serial.tools.list_ports
 
 '''this is NOT finalized - just a placehold for actual values'''
 id_to_sensor = {
-    1 : "Propane Tank",
-    1 : "LOX Tank",
-    3 : "Injector"
+    1: "Propane Tank",
+    1: "LOX Tank",
+    3: "Injector"
 }
+
 
 class SerialThread(QRunnable):
     '''
@@ -49,8 +54,9 @@ class SerialThread(QRunnable):
         # ---------- Serial Config ----------------------------------
 
         self.sensor_nums = sensor_nums
-        self.graph_titles = {'low_pt':['Lox Tank', 'Propane Tank', 'Lox Injector', 'Propane Injector'],'high_pt':['Pressurant Tank']}
-        self.sensor_types = ['low_pt','high_pt']# 'high_pt', 'temp']
+        self.graph_titles = {'low_pt': [
+            'Lox Tank', 'Propane Tank', 'Lox Injector', 'Propane Injector'], 'high_pt': ['Pressurant Tank']}
+        self.sensor_types = ['low_pt', 'high_pt']  # 'high_pt', 'temp']
 
         self.ser = None
 
@@ -68,14 +74,15 @@ class SerialThread(QRunnable):
         # generate data to set base line on eacg graph
         n_data = 400
         xdata = list(range(n_data))
-        ydata = [0 for i in range(n_data)]#[random.randint(0, 10) for i in range(n_data)]
+        # [random.randint(0, 10) for i in range(n_data)]
+        ydata = [0 for i in range(n_data)]
 
-        #Initialize Plot
+        # Initialize Plot
         # plot_refs = self.canvas.axes.plot(self.xdata, self.ydata, 'b')
         # self._plot_ref = plot_refs[0]
 
         # Create canvases based on the number of sensors that are actually in use
-        self.plot_ref_dict = {} #[self._plot_ref]
+        self.plot_ref_dict = {}  # [self._plot_ref]
         self.canvas_dict = {}
 
         for sensor in self.sensor_types:
@@ -89,7 +96,6 @@ class SerialThread(QRunnable):
                 self.plot_ref_dict[sensor].append(plot_refs[0])
                 canvas.axes.set_title(self.graph_titles[sensor][i])
 
-
     @pyqtSlot()
     def run(self):
         '''
@@ -100,7 +106,6 @@ class SerialThread(QRunnable):
         #     result = random.randint(0, 10)
         #     self.update_plot(result)
         #     time.sleep(0.01)
-
 
         NUMDATAPOINTS = 400
         fail_num = 15
@@ -122,7 +127,7 @@ class SerialThread(QRunnable):
         baudrate = 9600
         print("Baud Rate {}".format(baudrate))
         try:
-            ser = serial.Serial(chosenCom, baudrate,timeout=3)
+            ser = serial.Serial(chosenCom, baudrate, timeout=3)
             self.ser = ser
         except Exception as e:
             self.stop_thread("Invalid Serial Connection")
@@ -135,7 +140,6 @@ class SerialThread(QRunnable):
 
         # filename = input("Which file should the data be written to?\n")
         print("Writing raw data to: {}".format(self.raw_filename))
-
 
         fails = 0
         currLine = str(ser.readline())
@@ -164,13 +168,15 @@ class SerialThread(QRunnable):
                 start = time.time()
                 print("looking for high pressure input")
         numHighSensors = self.sensor_nums['high_pt']
-        byteNum = (str(numHighSensors)+"\r\n").encode('utf-8')
+        byteNum = (str(numHighSensors) + "\r\n").encode('utf-8')
         print("write high sensor nums: {}".format(ser.write(byteNum)))
 
-        total_sensors = numLowSensors + numHighSensors #TODO: add in temp sensor
-        #sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
-        print(ser.readline().decode("utf-8")) # There are x low PTs and x high PTs.
-        self.headers = ser.read_until().decode("utf-8") # low1, low2, low3, high1.....
+        total_sensors = numLowSensors + numHighSensors  # TODO: add in temp sensor
+        # sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
+        # There are x low PTs and x high PTs.
+        print(ser.readline().decode("utf-8"))
+        # low1, low2, low3, high1.....
+        self.headers = ser.read_until().decode("utf-8")
         headerList = self.headers.split(",")
         print(headerList)
 
@@ -181,14 +187,14 @@ class SerialThread(QRunnable):
             data_dict[sensor] = [[] for i in range(self.sensor_nums[sensor])]
             toDisplay_dict[sensor] = [[] for i in range(total_sensors)]
 
-        with open(self.raw_filename,"a") as f:
+        with open(self.raw_filename, "a") as f:
             self.headers = "time elapsed, " + self.headers
-            f.write(self.headers+"\n")
+            f.write(self.headers + "\n")
 
         ser.write("0\r\n".encode('utf-8'))
 
+        # TODO: Figure out why this is crashing on close
 
-        #TODO: Figure out why this is crashing on close
         def getLatestSerialInput():
             if ser:
                 line = ser.readline()
@@ -200,7 +206,6 @@ class SerialThread(QRunnable):
                             start = time.time()
                             print("looking for low pressure input")
                 return line.decode('utf-8').strip()
-
 
         last_first_value = 0
         last_values = [0] * 5
@@ -214,28 +219,30 @@ class SerialThread(QRunnable):
                 values = line.strip().split(',')
 
                 if values[0] == '':
-                    values[0] = str(last_first_value);
+                    values[0] = str(last_first_value)
                 if len(values) < total_sensors:
                     print("not enough data, continuing")
                     continue
                 last_values = values
                 values = [val.strip() for val in values]
+                values = [lowPressureConversion(val) if i != 0 else highPressureConversion(
+                    val) for val, ind in enumerate(values)]
                 last_first_value = values[0]
 
                 if should_print:
                     print("values: {}".format(values))
 
-
-                with open(self.raw_filename,"a") as fe:
-                    toWrite = str(time.time()-start)+"," + ",".join(values)+"\n"
+                with open(self.raw_filename, "a") as fe:
+                    toWrite = str(time.time() - start) + \
+                        "," + ",".join(values) + "\n"
                     fe.write(toWrite)
-                    writer = csv.writer(fe,delimiter=",")
+                    writer = csv.writer(fe, delimiter=",")
                 if self.save_waterflow:
-                    with open(self.filename,"a") as fe:
-                        toWrite = str(time.time()-self.waterflow_start)+"," + ",".join(values)+"\n"
+                    with open(self.filename, "a") as fe:
+                        toWrite = str(
+                            time.time() - self.waterflow_start) + "," + ",".join(values) + "\n"
                         fe.write(toWrite)
-                        writer = csv.writer(fe,delimiter=",")
-
+                        writer = csv.writer(fe, delimiter=",")
 
                 # iterate through values of incoming data and add to appropriate graps datasets
                 sensor = ''
@@ -262,7 +269,7 @@ class SerialThread(QRunnable):
                         if should_print:
                             print(len(data[j]))
                             print(len(toDisplay[j]))
-                            print("Sensor: {} Index: {}".format(sensor,j))
+                            print("Sensor: {} Index: {}".format(sensor, j))
 
                         if display_all:
                             plots[j].set_ydata(data[j])
@@ -299,7 +306,8 @@ class SerialThread(QRunnable):
                 for name in self.valve_signals.keys():
                     if (self.valve_signals[name] != 0):
                         print(self.valve_signals[name])
-                        byteNum = (str(self.valve_signals[name]) + "\r\n").encode('utf-8')
+                        byteNum = (
+                            str(self.valve_signals[name]) + "\r\n").encode('utf-8')
                         ser.write(byteNum)
                         self.valve_signals[name] = 0
 
@@ -344,31 +352,29 @@ class SerialThread(QRunnable):
 
         self.stop_thread("Thread Stopped")
 
-
-    def stop_thread(self,msg=''):
+    def stop_thread(self, msg=''):
         SerialThread.running = False
         if self.ser:
             self.ser.close()
         if msg:
-            print("{}: ".format(self.name),msg)
+            print("{}: ".format(self.name), msg)
         self.signals.finished.emit()
-
 
     def update_plot(self):
 
-            self._plot_ref.set_ydata(self.ydata)
-            self._plot_ref.set_xdata(self.xdata)
+        self._plot_ref.set_ydata(self.ydata)
+        self._plot_ref.set_xdata(self.xdata)
 
-            self.canvas.draw()
+        self.canvas.draw()
 
     def start_saving_waterflow(self, filename, metadata):
         if self.headers:
             self.filename = "data/" + filename
             self.waterflow_start = time.time()
             print("Writing data to: {}".format(filename))
-            with open(self.filename,"a") as f:
-                    f.write(metadata+"\n")
-                    f.write(self.headers+"\n")
+            with open(self.filename, "a") as f:
+                f.write(metadata + "\n")
+                f.write(self.headers + "\n")
             self.save_waterflow = True
         else:
             print("Error: data collection has not started")
