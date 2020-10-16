@@ -25,6 +25,8 @@ id_to_sensor = {
     3: "Injector"
 }
 
+initHighPressure()
+
 
 class SerialThread(QRunnable):
     '''
