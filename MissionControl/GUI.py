@@ -13,8 +13,36 @@ from datetime import datetime
 
 # Contains Thread Definitions
 from GUI_threads import *
+from packet import *
 
-sensor_type_to_name = {
+"""
+GUI.py
+Create portable serialized representations of Python objects.
+
+See module copyreg for a mechanism for registering custom picklers.
+See module pickletools source for extensive comments.
+
+Classes:
+
+    Pickler
+    Unpickler
+
+Functions:
+
+    dump(object, file)
+    dumps(object) -> string
+    load(file) -> object
+    loads(string) -> object
+
+Misc variables:
+
+    __version__
+    format_version
+    compatible_formats
+"""
+
+
+sensor_name_to_text = {
         "low_pt" : "Low Pressure",
         "high_pt" : "High Pressure",
         "temp" : "Temperature"
@@ -38,12 +66,12 @@ class MplCanvas(FigureCanvasQTAgg):
         super(MplCanvas, self).__init__(fig)
 
 class StatusGroup(QWidget):
-    def __init__(self, name, msg, valve_signals, *args, **kwargs):
+    def __init__(self, name, id, valve_signals, *args, **kwargs):
         super(StatusGroup, self).__init__(*args, **kwargs)
 
         self.valve_signals = valve_signals
         self.name = name
-        self.msg = msg
+        self.id = id
         layout = QGridLayout()
 
         self.open_btn = QPushButton("OPEN")
@@ -63,15 +91,19 @@ class StatusGroup(QWidget):
 
     def open_act(self):
         if self.status.closed:
-            print("Opening " + self.name)
+            pack = Packet('1',id=self.id,)
             self.status.switch()
-            self.valve_signals[self.name] = self.msg
+            self.valve_signals[self.name] = pack.encode_data()
+            print("Opening " + self.name)
+            print(self.valve_signals[self.name])
 
     def close_act(self):
         if not self.status.closed:
-            print("Closing " + self.name)
+            pack = Packet('0',id=self.id,)
             self.status.switch()
-            self.valve_signals[self.name] = self.msg
+            self.valve_signals[self.name] = pack.encode_data()
+            print("Closing " + self.name)
+            print(self.valve_signals[self.name])
 
 class Status(QWidget):
     def __init__(self, *args, **kwargs):
@@ -166,10 +198,10 @@ class MainWindow(QMainWindow):
 
         valves = ["Pressurant", "LOX GEMS", "Propane GEMS", "LOX 2-WAY",
         "Propane 2-WAY", "LOX 5-WAY", "Propane 5-WAY"]
-        valve_msgs = ['e', 'c', 'z', 'a', 'x', 'b', 'y']
+        valve_ids = [26, 22, 25, 20, 23, 24, 21]
         self.StatusGroups = {}
         for i in range(len(valves)):
-            self.StatusGroups[valves[i]] = StatusGroup(valves[i],valve_msgs[i],self.valve_signals)
+            self.StatusGroups[valves[i]] = StatusGroup(valves[i],valve_ids[i],self.valve_signals)
             self.valve_signals[valves[i]] = 0
 
         label_names = ['Pressurant', 'LOX', 'Propane', 'GEMS', '2-WAY', '5-WAY', 'BOTH 5-WAY']
@@ -296,7 +328,7 @@ class MainWindow(QMainWindow):
             tabWidget.setLayout(tabGrid)
             # else:
 
-            graphWidget.addTab(tabWidget, sensor_type_to_name[sensor])
+            graphWidget.addTab(tabWidget, sensor_name_to_text[sensor])
         # graphWidget.addTab(QLabel("Beans"),"Beans")
         mainlayout.addWidget(graphWidget,1,1,2,1)
 

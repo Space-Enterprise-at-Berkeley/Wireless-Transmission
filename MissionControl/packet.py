@@ -7,9 +7,14 @@ Packet object format: integer id, integer list data, and string checksum.
 
 class Packet:
     def __init__(self, data, id = None):
+        # If no ID is passed in, `data` will be a raw data packet to be decoded
         if not id:
             self.sensor_id, self.data, self.checksum = self.decode_message(data)
-            self.encoded_message = data
+            if not self.sensor_id and not self.data and not self.checksum:
+                self.encoded_message = data
+            else:
+                self.encoded_message = None
+        # If an ID is passed in, `data` will be information to be encoded with ID into a packet
         else:
             self.sensor_id = id
             self.data = data
@@ -35,6 +40,9 @@ class Packet:
 
     def decode_message(self, data):
         tracker = len(data) - 1
+        if '|' not in data:
+            print("Invalied packet: No Data Termination Character ('|') found")
+            return None, None, None
         while data[tracker] != "|":
             tracker -= 1
         old_sum = data[tracker + 1:len(data) - 1]
@@ -48,10 +56,9 @@ class Packet:
         # Calculate new checksum and compare.
         checksum_data = data[1:tracker]
         new_sum = fletcher16(checksum_data)
-        if old_sum == new_sum:
-            print("Check sum succeeded")
-        else:
-            print("New sum does not match the old sum")
+        if old_sum != new_sum:
+            print("Calculated checksum does not match the transmitted checksum")
+            return None, None, None
 
         # Get sensor data.
         data = checksum_data.split(",")
