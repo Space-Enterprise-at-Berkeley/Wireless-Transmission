@@ -14,6 +14,7 @@ from datetime import datetime
 # Contains Thread Definitions
 from GUI_threads import *
 from packet import *
+from Sensor_IDs import *
 
 """
 GUI.py
@@ -51,7 +52,7 @@ sensor_name_to_text = {
 
 '''Given a base file name BASE, will return the correct full name "BASE_MM-DD-YY_"'''
 def full_file_name(base):
-    return "{}_{}.csv".format(base,datetime.now().strftime('%m-%d-%y__%H_%M'))
+    return "{}_{}.csv".format(base,datetime.now().strftime('%y-%m-%d__%H_%M'))
 
 class MplCanvas(FigureCanvasQTAgg):
 
@@ -175,6 +176,12 @@ class MainWindow(QMainWindow):
 
         self.sensor_types = sensor_types.copy()
         self.sensor_nums = sensor_nums.copy()
+        self.all_sensors = {}
+        # Defining the order of graphs for each type of data
+        self.all_sensors['low_pt'] = ["lox_injector", "prop_injector", "lox_tank", "prop_tank"]
+        self.all_sensors['high_pt'] = ["pressurant"]
+        self.all_sensors['temp'] = ["temp1","temp2","temp3","temp4","temp5","temp6"]
+        self.all_sensors['load_cell'] = ["load_cell_1","load_cell_1"]
 
 
         mainlayout = QGridLayout()
@@ -304,15 +311,17 @@ class MainWindow(QMainWindow):
         graphWidget = QTabWidget()
         self.graphs = {}
         self.figures = {}
-        for sensor in self.sensor_types:
+        for sensor_type in self.sensor_types:
             # TODO: make graph allocation more generalized,
             # since we may have more than 6 of a given type of sensor (temp?)
-            self.graphs[sensor] = []
-            num = self.sensor_max_nums[sensor]
+            self.graphs[sensor_type] = []
+            num = self.sensor_max_nums[sensor_type]
             tabWidget = QWidget()
             tabGrid = QGridLayout()
             if num == 1:
                 grid_pos = self.generate_pos(1,1)
+            elif num == 2:
+                grid_pos = self.generate_pos(1,2)
             elif num <= 4:
                 grid_pos = self.generate_pos(2,2)
             else:
@@ -320,16 +329,14 @@ class MainWindow(QMainWindow):
 
             # fig = Figure(figsize=(5, 4), dpi=100)
             # self.figures[sensor] = fig
-            for i in range(num):
+            for sensor in self.all_sensors[sensor_type]:
                 canvas = MplCanvas(self,width=5, height=4, dpi=100)
-                self.graphs[sensor].append(canvas)
+                # Add canvas to a dictionary where key is the unique ID
+                self.graphs[sensor_name_to_id[sensor]] = canvas
                 row,col = next(grid_pos)
                 tabGrid.addWidget(canvas,row,col)
             tabWidget.setLayout(tabGrid)
-            # else:
-
-            graphWidget.addTab(tabWidget, sensor_name_to_text[sensor])
-        # graphWidget.addTab(QLabel("Beans"),"Beans")
+            graphWidget.addTab(tabWidget, sensor_name_to_text[sensor_type])
         mainlayout.addWidget(graphWidget,1,1,2,1)
 
 

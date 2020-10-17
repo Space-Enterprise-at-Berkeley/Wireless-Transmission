@@ -10,7 +10,7 @@ class Packet:
         # If no ID is passed in, `data` will be a raw data packet to be decoded
         if not id:
             self.sensor_id, self.data, self.checksum = self.decode_message(data)
-            if not self.sensor_id and not self.data and not self.checksum:
+            if self.sensor_id and self.data and self.checksum:
                 self.encoded_message = data
             else:
                 self.encoded_message = None
