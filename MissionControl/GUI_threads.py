@@ -100,95 +100,6 @@ class SerialThread(QRunnable):
         Initialize the independent serial monitoring thread
         '''
 
-        # Controls how many data points are being displayed on the graph
-        NUMDATAPOINTS = 400
-        fail_num = 15
-        should_print = False
-        display = True
-        display_all = False
-        repeat = 1
-
-        print("Initializing")
-
-        if not self.simulate:
-
-            chosenCom = ""
-            ports = list(serial.tools.list_ports.comports())
-            for p in ports:
-                print(p)
-                if "Arduino" in p.description or "ACM" in p.description or "cu.usbmodem" in p[0]:
-                    chosenCom = p[0]
-                    print("Chosen COM: {}".format(p))
-            if not chosenCom:
-                self.stop_thread("No Valid Com Found")
-                return
-            print("Chosen COM {}".format(chosenCom))
-            baudrate = 9600
-            print("Baud Rate {}".format(baudrate))
-            try:
-                ser = serial.Serial(chosenCom, baudrate,timeout=3)
-                self.ser = ser
-            except Exception as e:
-                self.stop_thread("Invalid Serial Connection")
-                return
-            ser.flushInput()
-
-            fails = 0
-            currLine = str(ser.readline())
-            start = time.time()
-            while ("low pressure sensors" not in currLine and "low pt" not in currLine):
-                currLine = str(ser.readline())
-                if (currLine != "b''"):
-                    print(currLine)
-                    if time.time() - start > 1.5:
-                        start = time.time()
-                        print("looking for low pressure input")
-                else:
-                    fails += 1
-                if (fails == fail_num):
-                    self.stop_thread("Connection Lost")
-                    return
-            numLowSensors = self.sensor_nums['low_pt']
-            byteNum = (str(numLowSensors) + "\r\n").encode('utf-8')
-            print("write low sensor nums: {}".format(ser.write(byteNum)))
-
-            currLine = str(ser.readline())
-            start = time.time()
-            while ("high pressure sensors" not in currLine):
-                currLine = str(ser.readline())
-                if time.time() - start > 1.5:
-                    start = time.time()
-                    print("looking for high pressure input")
-            numHighSensors = self.sensor_nums['high_pt']
-            byteNum = (str(numHighSensors)+"\r\n").encode('utf-8')
-            print("write high sensor nums: {}".format(ser.write(byteNum)))
-
-            total_sensors = numLowSensors + numHighSensors #TODO: add in temp sensor
-            #sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
-            print(ser.readline().decode("utf-8")) # There are x low PTs and x high PTs.
-            self.headers = ser.read_until().decode("utf-8") # low1, low2, low3, high1.....
-            headerList = self.headers.split(",")
-            print(headerList)
-
-            print("num sensors: {}".format(total_sensors))
-
-        data_dict = {}
-        toDisplay_dict = {}
-        for id in sensor_ids:
-            if id in self.graphs.keys():
-                data_dict[id] = []
-                toDisplay_dict[id] = []
-
-
-        print("Writing raw data to: {}".format(self.raw_filename))
-        with open(self.raw_filename,"a") as f:
-            self.headers = "time elapsed, packet"
-            f.write(self.headers+"\n")
-
-        if not self.simulate:
-            ser.write("0\r\n".encode('utf-8'))
-
-
         #TODO: Figure out why this is crashing on close
         def getLatestSerialInput():
             if not self.simulate:
@@ -216,6 +127,98 @@ class SerialThread(QRunnable):
             # ----------- Initialization -------------
 
             if self.initializing:
+
+                # Controls how many data points are being displayed on the graph
+                NUMDATAPOINTS = 400
+                fail_num = 15
+                should_print = False
+                display = True
+                display_all = False
+                repeat = 1
+
+                if not self.simulate:
+                    print("Initializing")
+                    chosenCom = ""
+                    ports = list(serial.tools.list_ports.comports())
+                    for p in ports:
+                        print(p)
+                        if "Arduino" in p.description or "ACM" in p.description or "cu.usbmodem" in p[0]:
+                            chosenCom = p[0]
+                            print("Chosen COM: {}".format(p))
+                    if not chosenCom:
+                        self.stop_thread("No Valid Com Found")
+                        return
+                    print("Chosen COM {}".format(chosenCom))
+                    baudrate = 9600
+                    print("Baud Rate {}".format(baudrate))
+                    try:
+                        ser = serial.Serial(chosenCom, baudrate,timeout=3)
+                        self.ser = ser
+                    except Exception as e:
+                        self.stop_thread("Invalid Serial Connection")
+                        return
+                    ser.flushInput()
+
+                    fails = 0
+                    currLine = str(ser.readline())
+                    start = time.time()
+                    is_packet = False
+                    while not is_packet and "low pressure sensors" not in currLine and "low pt" not in currLine:
+                        currLine = str(ser.readline())
+                        pack = Packet(currLine)
+                        is_packet = pack.is_valid()
+                        if (currLine != "b''"):
+                            print(currLine)
+                            if time.time() - start > 1.5:
+                                start = time.time()
+                                print("looking for low pressure input")
+                        else:
+                            fails += 1
+                        if (fails == fail_num):
+                            self.stop_thread("Connection Lost")
+                            return
+
+                    # If data coming in is not a valid packet, need to continue with initialization
+                    if not is_packet:
+                        numLowSensors = self.sensor_nums['low_pt']
+                        byteNum = (str(numLowSensors) + "\r\n").encode('utf-8')
+                        print("write low sensor nums: {}".format(ser.write(byteNum)))
+
+                        currLine = str(ser.readline())
+                        start = time.time()
+                        while ("high pressure sensors" not in currLine):
+                            currLine = str(ser.readline())
+                            if time.time() - start > 1.5:
+                                start = time.time()
+                                print("looking for high pressure input")
+                        numHighSensors = self.sensor_nums['high_pt']
+                        byteNum = (str(numHighSensors)+"\r\n").encode('utf-8')
+                        print("write high sensor nums: {}".format(ser.write(byteNum)))
+
+                        total_sensors = numLowSensors + numHighSensors #TODO: add in temp sensor
+                        #sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
+                        print(ser.readline().decode("utf-8")) # There are x low PTs and x high PTs.
+                        self.headers = ser.read_until().decode("utf-8") # low1, low2, low3, high1.....
+                        headerList = self.headers.split(",")
+                        print(headerList)
+
+                        print("num sensors: {}".format(total_sensors))
+
+                data_dict = {}
+                toDisplay_dict = {}
+                for id in sensor_ids:
+                    if id in self.graphs.keys():
+                        data_dict[id] = []
+                        toDisplay_dict[id] = []
+
+
+                print("Writing raw data to: {}".format(self.raw_filename))
+                with open(self.raw_filename,"a") as f:
+                    self.headers = "time elapsed, packet"
+                    f.write(self.headers+"\n")
+
+                if not self.simulate:
+                    ser.write("0\r\n".encode('utf-8'))
 
                 self.initializing = False
 

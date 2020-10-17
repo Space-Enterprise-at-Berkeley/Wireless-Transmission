@@ -20,6 +20,9 @@ class Packet:
             self.data = data
             self.encoded_message = self.encode_data()
 
+        self.debug = False
+        self.is_valid = None
+
     def get_id(self):
         return self.sensor_id
 
@@ -28,6 +31,9 @@ class Packet:
 
     def get_sum(self):
         return self.checksum
+
+    def is_valid(self):
+        return
 
     def encode_data(self):
         encoding = str(self.sensor_id)
@@ -41,7 +47,9 @@ class Packet:
     def decode_message(self, data):
         tracker = len(data) - 1
         if '|' not in data:
-            print("Invalied packet: No Data Termination Character ('|') found")
+            self.is_valid = False
+            if self.debug:
+                print("Invalied packet: No Data Termination Character ('|') found")
             return None, None, None
         while data[tracker] != "|":
             tracker -= 1
@@ -57,12 +65,15 @@ class Packet:
         checksum_data = data[1:tracker]
         new_sum = fletcher16(checksum_data)
         if old_sum != new_sum:
-            print("Calculated checksum does not match the transmitted checksum")
+            self.is_valid = False
+            if self.debug:
+                print("Calculated checksum does not match the transmitted checksum")
             return None, None, None
 
         # Get sensor data.
         data = checksum_data.split(",")
         data = [float(data[i]) for i in range(len(data))]
+        self.is_valid = True
         return sensor_id, data, new_sum
 
 def fletcher16(message):
