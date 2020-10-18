@@ -13,6 +13,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationTool
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
+from sensorParsing import *
+
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -25,7 +27,7 @@ id_to_sensor = {
     3: "Injector"
 }
 
-initHighPressure()
+highPressureConversionFunc = initHighPressure()
 
 
 class SerialThread(QRunnable):
@@ -227,22 +229,25 @@ class SerialThread(QRunnable):
                     continue
                 last_values = values
                 values = [val.strip() for val in values]
-                values = [lowPressureConversion(val) if i != 0 else highPressureConversion(
-                    val) for val, ind in enumerate(values)]
+                if("high" not in values):
+                    print(values)
+                    print(enumerate([int(val) for val in values]))
+                    print([val for val in enumerate(values)])
+                    values = [lowPressureConversion(int(val)) if ind != 0 else highPressureConversionFunc(int(val)) if int(val) > 210 else 0 for ind, val in enumerate(values)]
                 last_first_value = values[0]
 
                 if should_print:
                     print("values: {}".format(values))
 
                 with open(self.raw_filename, "a") as fe:
-                    toWrite = str(time.time() - start) + \
-                        "," + ",".join(values) + "\n"
+                    # toWrite = str(time.time() - start) + "," + ",".join(values) + "\n"
+                    toWrite = str(time.time() - start) + "," + ",".join([str(val) for val in values]) + "\n"
                     fe.write(toWrite)
                     writer = csv.writer(fe, delimiter=",")
                 if self.save_waterflow:
                     with open(self.filename, "a") as fe:
-                        toWrite = str(
-                            time.time() - self.waterflow_start) + "," + ",".join(values) + "\n"
+                        # toWrite = str(time.time() - self.waterflow_start) + "," + ",".join(values) + "\n"
+                        toWrite = str(time.time() - start) + "," + ",".join([str(val) for val in values]) + "\n"
                         fe.write(toWrite)
                         writer = csv.writer(fe, delimiter=",")
 
