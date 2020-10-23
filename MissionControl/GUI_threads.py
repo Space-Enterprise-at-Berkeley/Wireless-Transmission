@@ -11,6 +11,7 @@ import time, traceback, sys, random, select
 import numpy as np
 import csv
 import math
+import random
 
 import serial
 import serial.tools.list_ports
@@ -83,9 +84,10 @@ class SerialThread(QRunnable):
                 canvas = self.graphs[id]
                 self.canvas_dict[id] = canvas
                 # Get plot reference that can be used to update graph later
-                plot_refs = canvas.axes.plot(xdata, ydata, 'b')
+                plot_refs = canvas.axes.plot(xdata, ydata, 'b', label="test2")
                 self.plot_ref_dict[id] = plot_refs[0]
                 canvas.axes.set_title(sensor_id_to_name[id]) #TODO need to use "pretty" version of name as title
+                canvas.axes.legend(loc='upper right')
 
         # ---------- Simulation Config ---------------------------------
         self.low_pt_ids = [1,2,3,4]
@@ -284,6 +286,8 @@ class SerialThread(QRunnable):
                     canvas.axes.autoscale_view()
                     canvas.draw()
                     repeat = 1
+                    leg = canvas.axes.legend(loc="upper right")
+                    leg.get_texts()[0].set_text("{:.1f}".format(sum(toDisplay[-10:-1])/10))
                 else:
                     repeat += 1
 
@@ -352,6 +356,17 @@ class SerialThread(QRunnable):
     def packet_generator(self):
         funcs = [lambda x: 100*math.cos(x/20), lambda x: 40*math.cos(x/25),
                  lambda x: 70*math.cos(x/10), lambda x: 65*math.cos(x/15)]
+
+
+        def pt_line(num):
+            if x % 3 == 0:
+                return num + random.uniform(-5,5)
+            else:
+                return num
+
+        funcs[0] = lambda x: 8 + random.uniform(-1,1)
+        funcs[1] = lambda x: pt_line(12)
+
 
         x = 0
         while True:
