@@ -1,7 +1,8 @@
 #include <math.h>
 #include <solenoids.h>
+#include <SoftwareSerial.h>
 
-Solenoids valves;
+//Solenoids valves;
 
 #define LOW_PRESSURE_1 A0
 #define LOW_PRESSURE_2 A1
@@ -12,6 +13,8 @@ Solenoids valves;
 #define HIGH_PRESSURE_2 A5
 
 //#define RFSerial Serial1
+
+SoftwareSerial teensy(6, 7);
 
 void readData();
 void convertData();
@@ -28,9 +31,10 @@ int numHighPressure = 0;
 void setup() {
   //If connected to RF, change baud rate from 9600 to 57600
   Serial.begin(57600);
+  teensy.begin(9600);
 
   // Setup solenoids
-  valves.init();
+//  valves.init();
 
 
   Serial.println("How many low pressure sensors are connected?");
@@ -101,25 +105,25 @@ void loop() {
       int readByte = Serial.read();
       if(readByte == 'a') {
         Serial.print("Toggled LOX 2: ");
-        Serial.println(valves.toggleLOX2Way());
+//        Serial.println(valves.toggleLOX2Way());
       } else if(readByte == 'b') {
         Serial.print("Toggled LOX 5: ");
-        Serial.println(valves.toggleLOX5Way());
+//        Serial.println(valves.toggleLOX5Way());
       } else if (readByte == 'c') {
         Serial.print("Toggled LOX Gems: ");
-        Serial.println(valves.toggleLOXGems());
+//        Serial.println(valves.toggleLOXGems());
       } else if(readByte == 'x') {
         Serial.print("Toggled PROP 2: ");
-        Serial.println(valves.toggleProp2Way());
+//        Serial.println(valves.toggleProp2Way());
       } else if (readByte == 'y') {
         Serial.print("Toggled PROP 5: ");
-        Serial.println(valves.toggleProp5Way());
+//        Serial.println(valves.toggleProp5Way());
       } else if (readByte == 'z') {
         Serial.print("Toggled PROP Gems: ");
-        Serial.println(valves.togglePropGems());
+//        Serial.println(valves.togglePropGems());
       } else if (readByte == 'e') {
         Serial.print("Toggled High Pressure: ");
-        Serial.println(valves.toggleHighPressureSolenoid());
+//        Serial.println(valves.toggleHighPressureSolenoid());
       }
     }
 
@@ -178,6 +182,55 @@ void loop() {
       } else {
         Serial.print("-1");
       }
+
+      Serial.print(", ");
+      if (teensy.available()){
+        Serial.print(teensy.parseFloat());
+        Serial.read();
+      } else {
+        Serial.print(-1);
+      }
+
+      Serial.print(", ");
+      if (teensy.available()){
+        Serial.print(teensy.parseFloat());
+        Serial.read();
+      } else {
+        Serial.print(-1);
+      }
+
+      Serial.print(", ");
+      if (teensy.available()){
+        Serial.print(teensy.parseFloat());
+        Serial.read();
+      } else {
+        Serial.print(-1);
+      }
+
+      Serial.print(", ");
+      if (teensy.available()){
+        Serial.print(teensy.parseFloat());
+        Serial.read();
+      } else {
+        Serial.print(-1);
+      }
+
+      Serial.print(", ");
+      if (false){
+        Serial.print(teensy.parseFloat());
+        Serial.read();
+      } else {
+        Serial.print(-1);
+      }
+
+      Serial.print(", ");
+      if (false){
+        Serial.print(teensy.parseFloat());
+        Serial.read();
+      } else {
+        Serial.print(-1);
+      }
+      
       Serial.print("\n");
     }
   }
@@ -255,7 +308,7 @@ float lowPressureConversion(int raw){
 }
 
 float highPressureConversion(int raw){
-    float
+//    float
 //    return -9083 + (1.239 * pow(10,2) * raw) - 7.17 * pow(10,-1) * pow(raw, 2) + 2.29 * pow(10,-3) * pow(raw, 3);
     float converted = (((float)raw / 1024) - 0.2) * 5000;
     return converted;
