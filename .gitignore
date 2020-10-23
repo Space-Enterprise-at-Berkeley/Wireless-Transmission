@@ -6,5 +6,7 @@ Transmission/.DS_Store
 
 .ipynb_checkpoints/
 
-.venv
-__pycache__
+.venv/
+__pycache__/
+
+.vscode/
