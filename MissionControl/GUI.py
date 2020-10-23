@@ -458,7 +458,7 @@ class Entry(QMainWindow):
     def on_launchButton_clicked(self):
         if not os.path.isdir(self.folder_name):
             message = '''<p>The given folder to save data in does not exist:</p>    {}
-                    <p>Would you like to create the a new folder with the given name?</p>'''.format(folder_name)
+                    <p>Would you like to create the a new folder with the given name?</p>'''.format(self.folder_name)
             msgBox = QMessageBox(QMessageBox.Warning,
                     "QMessageBox.warning()", message,
                     QMessageBox.NoButton, self)

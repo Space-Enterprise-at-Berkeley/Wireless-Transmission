@@ -118,17 +118,23 @@ class SerialThread(QRunnable):
         print("Starting")
 
         chosenCom = ""
+        baudrate = 9600
         ports = list(serial.tools.list_ports.comports())
         for p in ports:
             print(p)
             if "Arduino" in p.description or "ACM" in p.description or "cu.usbmodem" in p[0]:
                 chosenCom = p[0]
                 print("Chosen COM: {}".format(p))
+                break
+            if "cu.usbserial" in p[0]:
+                chosenCom = p[0]
+                baudrate = 57600
+                print("Chosen COM: {}".format(p))
+                break
         if not chosenCom:
             self.stop_thread("No Valid Com Found")
             return
         print("Chosen COM {}".format(chosenCom))
-        baudrate = 9600
         print("Baud Rate {}".format(baudrate))
         try:
             ser = serial.Serial(chosenCom, baudrate, timeout=3)
@@ -148,7 +154,9 @@ class SerialThread(QRunnable):
         fails = 0
         currLine = str(ser.readline())
         start = time.time()
+        print(currLine)
         while ("low pressure sensors" not in currLine and "low pt" not in currLine):
+            # print(currLine)
             currLine = str(ser.readline())
             if (currLine != "b''"):
                 print(currLine)
