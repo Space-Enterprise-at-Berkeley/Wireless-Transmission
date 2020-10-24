@@ -176,6 +176,7 @@ class SerialThread(QRunnable):
             print("write high sensor nums: {}".format(ser.write(byteNum)))
 
             total_sensors = numLowSensors + numHighSensors  # TODO: add in temp sensor
+            total_sensors = 11 # 1 high + 4 low + 6 temp
             # sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
             # There are x low PTs and x high PTs.
             print(ser.readline().decode("utf-8"))
@@ -433,7 +434,6 @@ class SerialThread(QRunnable):
                 ret += ','
         # return "400,30,30,30,30"#12,3,-1,-1,-1,-1"
         self.x += 1
-        print(ret)
         return ret
 
 
