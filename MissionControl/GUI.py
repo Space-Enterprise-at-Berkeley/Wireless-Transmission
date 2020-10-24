@@ -23,7 +23,7 @@ sensor_type_to_name = {
 
 '''Given a base file name BASE, will return the correct full name "BASE_MM-DD-YY_"'''
 def full_file_name(base):
-    return "{}_{}.csv".format(base,datetime.now().strftime('%m-%d-%y__%H_%M'))
+    return "{}_{}.csv".format(base,datetime.now().strftime('%y-%m-%d__%H_%M'))
 
 class MplCanvas(FigureCanvasQTAgg):
 
