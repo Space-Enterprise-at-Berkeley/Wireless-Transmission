@@ -98,9 +98,10 @@ class SerialThread(QRunnable):
                 canvas = graphs[sensor][i]
                 self.canvas_dict[sensor].append(canvas)
                 # Get plot reference that can be used to update graph later
-                plot_refs = canvas.axes.plot(xdata, ydata, 'b')
+                plot_refs = canvas.axes.plot(xdata, ydata, 'b', label="test2")
                 self.plot_ref_dict[sensor].append(plot_refs[0])
                 canvas.axes.set_title(self.graph_titles[sensor][i])
+                canvas.axes.legend(loc='upper right')
 
     @pyqtSlot()
     def run(self):
@@ -334,6 +335,10 @@ class SerialThread(QRunnable):
                         #     ax[1,num].autoscale_view()
 
                             canvas_list[i].draw()
+                            leg = canvas_list[i].axes.legend(loc="upper right")
+                            # print(toDisplay_dict[sensor][i][-11:-1])
+                            # print(sum(toDisplay_dict[sensor][i][-11:-1])/10)
+                            leg.get_texts()[0].set_text("{:.1f}".format(sum(toDisplay_dict[sensor][i][-11:-1])/10))
                         # self.canvas.flush_events()
                     repeat = 1
                 else:
