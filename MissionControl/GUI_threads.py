@@ -55,7 +55,7 @@ class SerialThread(QRunnable):
         self.signals = SerialSignals()
         self.name = "Serial Thread"
 
-        self.simulate = True
+        self.simulate = False
         self.x = 0
         # ---------- Serial Config ----------------------------------
 
