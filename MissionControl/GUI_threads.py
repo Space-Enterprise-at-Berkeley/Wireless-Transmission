@@ -307,7 +307,13 @@ class SerialThread(QRunnable):
                         toDisplay = toDisplay_dict[sensor]
                         plots = self.plot_ref_dict[sensor]
 
-                        data[j].append(float(values[i]))
+                        if values[i] != "-1":
+                            data[j].append(float(values[i]))
+                        else:
+                            if len(data[j]) == 0:
+                                data[j].append(-1)
+                            else:
+                                data[j].append(data[j][-1])
                         toDisplay[j] = data[j][-NUMDATAPOINTS:]
                         if should_print:
                             print(len(data[j]))
