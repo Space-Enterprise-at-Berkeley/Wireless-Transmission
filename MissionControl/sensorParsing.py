@@ -13,8 +13,8 @@ def initHighPressure():
         os.getcwd() + "/../waterflow_test/high_pt_characterization_10_10")
     highPressureConversionFunc = interp1d(
         data['raw'], data['digital'], kind='quadratic')
-    print(type(highPressureConversionFunc))
-    print(highPressureConversionFunc(900))
+    # print(type(highPressureConversionFunc))
+    # print(highPressureConversionFunc(900))
     return highPressureConversionFunc
 
 

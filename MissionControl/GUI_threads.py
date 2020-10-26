@@ -61,7 +61,7 @@ class SerialThread(QRunnable):
 
         self.sensor_nums = sensor_nums
         self.graph_titles = {'low_pt': [
-            'Lox Tank', 'Propane Tank', 'Lox Injector', 'Propane Injector'], 'high_pt': ['Pressurant Tank'], 'temp': ['Temp1','Temp2','Temp3','Temp4','Temp5','Temp6']}
+            'Lox Tank', 'Propane Tank', 'Lox Injector', 'Propane Injector'], 'high_pt': ['Pressurant Tank'], 'temp': ['LOX Tree Temp','Heater PWM','V Battery','Power','Temp5','Temp6']}
         self.sensor_types = ['low_pt', 'high_pt', 'temp']
 
         self.ser = None
@@ -240,6 +240,7 @@ class SerialThread(QRunnable):
             # try:
             line = getLatestSerialInput()
             if ',' in line:
+                print("raw: ", line)
                 values = line.strip().split(',')
 
                 if values[0] == '':
@@ -250,7 +251,7 @@ class SerialThread(QRunnable):
                 last_values = values
                 values = [val.strip() for val in values]
                 if("high" not in values):
-                    print(values)
+                    # print(values)
                     # print(enumerate([float(val) for val in values]))
                     # print([val for val in enumerate(values)])
                     # only working for low & high pressure
@@ -279,7 +280,7 @@ class SerialThread(QRunnable):
                 if self.save_waterflow:
                     with open(self.filename, "a") as fe:
                         # toWrite = str(time.time() - self.waterflow_start) + "," + ",".join(values) + "\n"
-                        toWrite = str(time.time() - start) + "," + ",".join([str(val) for val in values]) + "\n"
+                        toWrite = str(time.time() - self.waterflow_start) + "," + ",".join([str(val) for val in values]) + "\n"
                         fe.write(toWrite)
                         writer = csv.writer(fe, delimiter=",")
 
