@@ -20,19 +20,41 @@ import serial.tools.list_ports
 from Sensor_IDs import *
 from packet import *
 
+"""
+GUI_threads.py
+Select and monitor a serial input for incoming telemetry, extra data from packets, and update graphs accordingly
+
+
+Classes:
+
+    MplCanvas
+    StatusGroup
+    Status
+    MainWindow
+    Entry
+
+Functions:
+
+    full_file_name(base_name)
+
+Misc variables:
+
+    N/A
+"""
+
 
 class SerialThread(QRunnable):
     '''
     Main Serial Thread
 
     Args:
-    graphs - canvas object for each graph in display, keyed by unique packet ID
+    graphs - dict with canvas object for each graph in display, keyed by unique packet ID
 
     sensor_nums - a dictionary of the format
-        sensor_type:# in use
+        sensor_type: # in use
 
     valve_signals -  is a dictionary that is kinda acting like a queue...
-    should replace it with an actual queue. Right now it has all values set to 0, and will send the
+    should replace it with an actual queue. Right now it has all values set to 0, and thread will send the
     value as a message if it is non-zero
 
     filename - the name of the file to write the data to

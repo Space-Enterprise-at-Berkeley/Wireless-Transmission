@@ -18,28 +18,28 @@ from Sensor_IDs import *
 
 """
 GUI.py
-Create portable serialized representations of Python objects.
+Interpret and graph live telemetry during a test (waterflow, coldflow, static fire). Provides Graphic User Interface
+(GUI) through which the Ground Station operator can view incoming telemetery and send commands to the flight computer
 
-See module copyreg for a mechanism for registering custom picklers.
-See module pickletools source for extensive comments.
+See GUI_threads for class to handle serial input/updating graphs.
+See packet for class to decode from raw strings to packet objects and vice versa.
+See Sensor_IDs for dicts used to associate packet IDs to their respective graphs
 
 Classes:
 
-    Pickler
-    Unpickler
+    MplCanvas
+    StatusGroup
+    Status
+    MainWindow
+    Entry
 
 Functions:
 
-    dump(object, file)
-    dumps(object) -> string
-    load(file) -> object
-    loads(string) -> object
+    full_file_name(base_name)
 
 Misc variables:
 
-    __version__
-    format_version
-    compatible_formats
+    N/A
 """
 
 
@@ -50,9 +50,9 @@ sensor_name_to_text = {
 }
 
 
-'''Given a base file name BASE, will return the correct full name "BASE_MM-DD-YY_"'''
-def full_file_name(base):
-    return "{}_{}.csv".format(base,datetime.now().strftime('%y-%m-%d__%H_%M'))
+'''Given a base file name BASE_NAME, will return the correct full name "BASE_NAME_YYYY-MM-DD_"'''
+def full_file_name(base_name):
+    return "{}_{}.csv".format(base_name,datetime.now().strftime('%Y-%m-%d__%H_%M'))
 
 class MplCanvas(FigureCanvasQTAgg):
 
