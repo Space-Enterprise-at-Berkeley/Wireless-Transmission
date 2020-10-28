@@ -388,10 +388,10 @@ class MainWindow(QMainWindow):
             metadata = ''
             for i in range(2):
                 metadata += "{} {} ".format(self.recording_labels[i].text(),self.recording_line_edits[i].text())
-            self.serialThread.start_saving_waterflow(file_name, metadata)
+            self.serialThread.start_saving_test(file_name, metadata)
             self.save_data_btn.setText("Stop Recording")
         else:
-            self.serialThread.stop_saving_waterflow()
+            self.serialThread.stop_saving_test()
             self.save_data_btn.setText("Start Recording")
             self.recording_display.setHidden(True)
 

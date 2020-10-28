@@ -83,7 +83,7 @@ class SerialThread(QRunnable):
 
         self.raw_filename = filename
         self.filename = None
-        self.save_waterflow = False
+        self.save_test = False
         self.headers = None
 
         # ---------- Display Config ---------------------------------
@@ -251,36 +251,36 @@ class SerialThread(QRunnable):
             # try:
             line = getLatestSerialInput()
             pack = Packet(line.strip())
-
+            time_recevied = time.time()
             #Record exactly what was received, even if is invalid packet
-            t = time.time()
             with open(self.raw_filename,"a") as fe:
-                # toWrite = str(t-start)+"," + ",".join(values)+"\n"
-                toWrite = str(t-start)+ "," + line + "\n"
+                toWrite = str(time_recevied-start)+ "," + line + "\n"
                 fe.write(toWrite)
                 writer = csv.writer(fe,delimiter=",")
 
             if pack.encoded_message != None:
 
                 # Saving data to files - how to write all at once for data cominng in a different speeds?
-                if self.save_waterflow:
-                    t - time.time()
+                if self.save_test:
                     with open(self.filename,"a") as fe:
-                        # toWrite = str(t-self.waterflow_start)+"," + ",".join(values)+"\n"
-                        toWrite = str(t-self.waterflow_start)+ "," + line + "\n"
+                        toWrite = str(time_recevied-self.test_start)+ "," + line + "\n"
                         fe.write(toWrite)
                         writer = csv.writer(fe,delimiter=",")
 
 
-                # TODO - add logic to do something different for depending on packet ID
+                # TODO - add logic to take other actions depending on packet ID (e.g. )
+                # @Bridget - this is where something could be done like this:
+                #     if pack.get_id() == 3:
+                #           process_data(pack.get_data()[1], time_recevied)
 
                 # if the value is -1, that means there is no data for that sensor
-                # if j >= self.sensor_nums[sensor], that means not all sensor are being used
+                # Retrieve and update the appropriate datalists and
                 val = pack.get_data()[1]
                 if int(val) != -1:
-                    data = data_dict[pack.get_id()]
-                    toDisplay = toDisplay_dict[pack.get_id()]
-                    plot = self.plot_ref_dict[pack.get_id()]
+                    id = pack.get_id()
+                    data = data_dict[id]
+                    toDisplay = toDisplay_dict[id]
+                    plot = self.plot_ref_dict[id]
 
                     data.append(float(val))
                     toDisplay = data[-NUMDATAPOINTS:]
@@ -288,7 +288,7 @@ class SerialThread(QRunnable):
                         print("Val: {}".format(float(val)))
                         print(len(data), data)
                         print(len(toDisplay), toDisplay)
-                        print("Id: {} Sensor: {}".format(pack.get_id(), sensor_id_to_name[pack.get_id()]))
+                        print("Id: {} Sensor: {}".format(id, sensor_id_to_name[id]))
 
                     if display_all:
                         plot.set_ydata(data)
@@ -360,20 +360,20 @@ class SerialThread(QRunnable):
 
             self.canvas.draw()
 
-    def start_saving_waterflow(self, filename, metadata):
+    def start_saving_test(self, filename, metadata):
         if self.headers:
             self.filename = "data/" + filename
-            self.waterflow_start = time.time()
+            self.test_start = time.time()
             print("Writing data to: {}".format(filename))
             with open(self.filename,"a") as f:
                     f.write(metadata+"\n")
                     f.write(self.headers+"\n")
-            self.save_waterflow = True
+            self.save_test = True
         else:
             print("Error: data collection has not started")
 
-    def stop_saving_waterflow(self):
-        self.save_waterflow = False
+    def stop_saving_test(self):
+        self.save_test = False
 
     def packet_generator(self):
         funcs = [lambda x: 100*math.cos(x/20), lambda x: 40*math.cos(x/25),
