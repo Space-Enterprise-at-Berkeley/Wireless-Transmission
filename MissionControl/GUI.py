@@ -20,6 +20,11 @@ sensor_type_to_name = {
         "temp" : "Temperature"
 }
 
+
+'''Given a base file name BASE, will return the correct full name "BASE_MM-DD-YY_"'''
+def full_file_name(base):
+    return "{}_{}.csv".format(base,datetime.now().strftime('%m-%d-%y__%H_%M'))
+
 class MplCanvas(FigureCanvasQTAgg):
 
     def __init__(self, parent=None, width=5, height=4, dpi=100, fig=None, nrows=None, ncols=None, index=None):
@@ -145,10 +150,13 @@ class MainWindow(QMainWindow):
         # row 0
 
         title = QLabel("Ground Dashboard")
-        titlefont = QFont("Lucida Grande",20, QFont.Bold)
-        title.setFont(titlefont)
+        title.setFont(QFont("Lucida Grande",20, QFont.Bold))
+
+        self.recording_display = QLabel("Recording")
+        self.recording_display.setFont(QFont("Lucida Grande",14))
 
         mainlayout.addWidget(title,0,0,1,2)
+        mainlayout.addWidget(self.recording_display,0,0,Qt.AlignCenter)
 
         # ---------- Valves -----------------------------------------
 
@@ -158,13 +166,13 @@ class MainWindow(QMainWindow):
 
         valves = ["Pressurant", "LOX GEMS", "Propane GEMS", "LOX 2-WAY",
         "Propane 2-WAY", "LOX 5-WAY", "Propane 5-WAY"]
-        valve_msgs = [0, 'c', 'z', 'a', 'x', 'b', 'y']
-        StatusGroups = {}
+        valve_msgs = ['e', 'c', 'z', 'a', 'x', 'b', 'y']
+        self.StatusGroups = {}
         for i in range(len(valves)):
-            StatusGroups[valves[i]] = StatusGroup(valves[i],valve_msgs[i],self.valve_signals)
+            self.StatusGroups[valves[i]] = StatusGroup(valves[i],valve_msgs[i],self.valve_signals)
             self.valve_signals[valves[i]] = 0
 
-        label_names = ['Pressurant', 'LOX', 'Propane', 'GEMS', '2-WAY', '5-WAY']
+        label_names = ['Pressurant', 'LOX', 'Propane', 'GEMS', '2-WAY', '5-WAY', 'BOTH 5-WAY']
         valve_labels = {}
         for i,name in enumerate(label_names):
             label = QLabel(name)
@@ -172,28 +180,88 @@ class MainWindow(QMainWindow):
             label.setFont(font)
             valve_labels[name] = label
 
+        # Buttons for opening Both 5-Ways
+
+        open_5ways_btn = QPushButton("OPEN")
+        open_5ways_btn.setFont(QFont("Helvetica Neue"))
+        open_5ways_btn.clicked.connect(self.toggle_5ways)
+        open_5ways_btn.setMaximumWidth(100)
+        close_5ways_btn = QPushButton("CLOSE")
+        close_5ways_btn.setFont(QFont("Helvetica Neue"))
+        close_5ways_btn.clicked.connect(self.toggle_5ways)
+        close_5ways_btn.setMaximumWidth(100)
+        self._5ways_open = False
+        _5way_btn_container = QWidget()
+        _5way_btn_layout = QVBoxLayout()
+        _5way_btn_layout.addWidget(open_5ways_btn)
+        _5way_btn_layout.addWidget(close_5ways_btn)
+        _5way_btn_container.setLayout(_5way_btn_layout)
+        _5way_btn_container.setMaximumWidth(90)
+
+        # Button & Text Fields to control Saving of Data
+        self.recording = False
+        self.save_data_btn = QPushButton("Start Recording")
+        self.save_data_btn.clicked.connect(self.record_data)
+        self.recording_timer = QTimer()
+        self.recording_timer.timeout.connect(self.showTime)
+        self.recording_display_showing = False
+        self.recording_timer.start(1000)
+
+        self.recording_text = ["LOX Dome:", "Propane Dome:", "File Name:"]
+        recording_containers = []
+        self.recording_labels = []
+        self.recording_line_edits = []
+        for i in range(len(self.recording_text)):
+            container = QWidget()
+            box_layout = QHBoxLayout()
+            label = QLabel(self.recording_text[i])
+            label.setFont(QFont("Lucida Grande",14, QFont.Bold))
+            box_layout.addWidget(label)
+            line_edit = QLineEdit()
+            if self.recording_text[i] == "File Name:":
+                line_edit.setText("waterflow")
+            box_layout.addWidget(line_edit)
+            container.setLayout(box_layout)
+            self.recording_line_edits.append(line_edit)
+            self.recording_labels.append(label)
+            recording_containers.append(container)
+        # Connect file name line edit to label
+        self.recording_line_edits[2].textChanged.connect(self.update_file_name)
+        self.file_name_label = QLabel(full_file_name("waterflow"))
+
         # Put StatusGroup objects and labels in valve GridLayout, as outlined in rough draft diagram
 
         valve_container = QWidget()
         valve_layout = QGridLayout()
         # row 0 & 1
-        valve_layout.addWidget(valve_labels["Pressurant"],0,1,1,2,Qt.AlignCenter)
-        valve_layout.addWidget(StatusGroups['Pressurant'],1,1,1,2,Qt.AlignCenter)
-        # row 2
-        valve_layout.addWidget(valve_labels["LOX"],2,1,Qt.AlignCenter)
-        valve_layout.addWidget(valve_labels["Propane"],2,2,Qt.AlignCenter)
-        # row 3
-        valve_layout.addWidget(valve_labels["GEMS"],3,0)
-        valve_layout.addWidget(StatusGroups['LOX GEMS'],3,1)
-        valve_layout.addWidget(StatusGroups['Propane GEMS'],3,2)
+        valve_layout.addWidget(recording_containers[0],0,1)
+        valve_layout.addWidget(recording_containers[1],0,2)
+        valve_layout.addWidget(recording_containers[2],1,1)
+        valve_layout.addWidget(self.file_name_label,1,2)
+        valve_layout.addWidget(self.save_data_btn,1,0)
+
+        valves_start_row = 2
+        # row 2 & 3
+        valve_layout.addWidget(valve_labels["Pressurant"],valves_start_row+0,1,1,2,Qt.AlignCenter)
+        valve_layout.addWidget(self.StatusGroups['Pressurant'],valves_start_row+1,1,1,2,Qt.AlignCenter)
         # row 4
-        valve_layout.addWidget(valve_labels["2-WAY"],4,0)
-        valve_layout.addWidget(StatusGroups['LOX 2-WAY'],4,1)
-        valve_layout.addWidget(StatusGroups['Propane 2-WAY'],4,2)
+        valve_layout.addWidget(valve_labels["LOX"],valves_start_row+2,1,Qt.AlignCenter)
+        valve_layout.addWidget(valve_labels["Propane"],valves_start_row+2,2,Qt.AlignCenter)
         # row 5
-        valve_layout.addWidget(valve_labels["5-WAY"],5,0)
-        valve_layout.addWidget(StatusGroups['LOX 5-WAY'],5,1)
-        valve_layout.addWidget(StatusGroups['Propane 5-WAY'],5,2)
+        valve_layout.addWidget(valve_labels["GEMS"],valves_start_row+3,0)
+        valve_layout.addWidget(self.StatusGroups['LOX GEMS'],valves_start_row+3,1)
+        valve_layout.addWidget(self.StatusGroups['Propane GEMS'],valves_start_row+3,2)
+        # row 6
+        valve_layout.addWidget(valve_labels["2-WAY"],valves_start_row+4,0)
+        valve_layout.addWidget(self.StatusGroups['LOX 2-WAY'],valves_start_row+4,1)
+        valve_layout.addWidget(self.StatusGroups['Propane 2-WAY'],valves_start_row+4,2)
+        # row 7
+        valve_layout.addWidget(valve_labels["5-WAY"],valves_start_row+5,0)
+        valve_layout.addWidget(self.StatusGroups['LOX 5-WAY'],valves_start_row+5,1)
+        valve_layout.addWidget(self.StatusGroups['Propane 5-WAY'],valves_start_row+5,2)
+        # row 8
+        valve_layout.addWidget(valve_labels['BOTH 5-WAY'],valves_start_row+6,0)
+        valve_layout.addWidget(_5way_btn_container,valves_start_row+6,1,1,2,Qt.AlignCenter)
 
         valve_container.setLayout(valve_layout)
         mainlayout.addWidget(valve_container,1,0)
@@ -230,14 +298,13 @@ class MainWindow(QMainWindow):
 
             graphWidget.addTab(tabWidget, sensor_type_to_name[sensor])
         # graphWidget.addTab(QLabel("Beans"),"Beans")
-        mainlayout.addWidget(graphWidget,1,1,1,1)
+        mainlayout.addWidget(graphWidget,1,1,2,1)
 
 
         # Creates a threadpool to handle scheduled threads
         self.threadpool = QThreadPool()
 
-        # Sets `beans` to be called every time serialThread sends a
-        # 'data' signal
+        # Create Main Data Gathering Thread
         self.serialThread = SerialThread(self.graphs, self.sensor_nums, self.valve_signals, file_path)
         self.serialThread.signals.data.connect(self.beans)
         self.threadpool.start(self.serialThread)
@@ -254,20 +321,47 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(widget)
 
 
-    '''Old method from when graph was in main object, not in separate thread'''
-    def update_plot(self, data=None):
-        if data is None:
-            self.ydata = self.ydata[1:] + [random.randint(0, 10)]
-        else:
-            self.ydata = self.ydata[1:] + [data]
 
-        if self._plot_ref is None:
-            plot_refs = self.canvas.axes.plot(self.xdata, self.ydata, 'b')
-            self._plot_ref = plot_refs[0]
+    def toggle_5ways(self):
+        if self._5ways_open:
+            self.StatusGroups["LOX 5-WAY"].close_act()
+            self.StatusGroups["Propane 5-WAY"].close_act()
+            print("Closing 5-Way Solenoids")
         else:
-            self._plot_ref.set_ydata(self.ydata)
+            self.StatusGroups["LOX 5-WAY"].open_act()
+            self.StatusGroups["Propane 5-WAY"].open_act()
+            print("Opening 5-Way Solenoids")
+        self._5ways_open = not self._5ways_open
 
-        self.canvas.draw()
+
+    def showTime(self):
+        if self.recording:
+            if self.recording_display_showing:
+                self.recording_display.setHidden(True)
+            else:
+                self.recording_display.setHidden(False)
+            self.recording_display_showing = not self.recording_display_showing
+
+    def record_data(self):
+        if not self.recording:
+            file_name = full_file_name(self.recording_line_edits[2].text())
+            # Add metadata to top of file. For now, only the dome pressures being used.
+            metadata = ''
+            for i in range(2):
+                metadata += "{} {} ".format(self.recording_labels[i].text(),self.recording_line_edits[i].text())
+            self.serialThread.start_saving_waterflow(file_name, metadata)
+            self.save_data_btn.setText("Stop Recording")
+        else:
+            self.serialThread.stop_saving_waterflow()
+            self.save_data_btn.setText("Start Recording")
+            self.recording_display.setHidden(True)
+
+        self.recording = not self.recording
+
+    def update_file_name(self):
+        file_name = full_file_name(self.recording_line_edits[2].text())
+        self.file_name_label.setText(file_name)
+
 
     def beans(self, num):
         print("{} beans".format(num))
@@ -311,7 +405,7 @@ class Entry(QMainWindow):
         label_names = ['Base Filename:', 'Folder:', 'File Path:','# Low PTs:', '# High PTs:', '# Temp Sensors:']
         label_ids = ['base_file', 'folder', 'file_path', 'low_pt', 'high_pt', 'temp']
         self.labels = {}
-        line_edit_defaults = ['waterflow', self.storage_path, '', '0', '0','0']
+        line_edit_defaults = ['waterflow', self.storage_path, '', '4', '1','0']
         self.line_edits = {}
         label_font = QFont("Lucida Grande",14, QFont.Bold)
         for i,name in enumerate(label_names):
@@ -330,6 +424,7 @@ class Entry(QMainWindow):
             mainlayout.addWidget(line_edit,i+1,1)
 
         # Set various object settings
+        # Use a validator to restrict possible values for text fields
         self.line_edits['low_pt'].setValidator(QIntValidator(0,5))
         self.line_edits['high_pt'].setValidator(QIntValidator(0,2))
         self.line_edits['temp'].setValidator(QIntValidator(0,7))
@@ -349,13 +444,10 @@ class Entry(QMainWindow):
 
 
     def update_full_file_path(self):
-        self.file_name = self.full_file_name(self.line_edits['base_file'].text())
+        self.file_name = full_file_name(self.line_edits['base_file'].text())
         self.folder_name = self.line_edits['folder'].text()
-        self.labels['file_path_text'].setText(os.path.join(self.folder_name,self.file_name))
+        self.labels['file_path_text'].setText(os.path.join(self.folder_name,"raw_"+self.file_name))
 
-    '''Given a base file name BASE, will return the correct full name "BASE_MM-DD-YY_#{i}"'''
-    def full_file_name(self, base):
-        return "{}_{}.csv".format(base,datetime.now().strftime('%m-%d-%y__%H_%M'))
 
     def update_sensor_vals(self):
         for sensor_type in self.sensors:
