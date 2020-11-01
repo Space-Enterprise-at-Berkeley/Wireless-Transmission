@@ -208,8 +208,8 @@ class MainWindow(QMainWindow):
         # Dynamically create StatusGroup objects and formatted labels for all valves
 
         valves = ["Pressurant", "LOX GEMS", "Propane GEMS", "LOX 2-WAY",
-        "Propane 2-WAY", "LOX 5-WAY", "Propane 5-WAY"]
-        valve_ids = [26, 22, 25, 20, 23, 24, 21]
+        "Propane 2-WAY", "LOX 5-WAY", "Propane 5-WAY", "Both 5-WAY"]
+        valve_ids = [26, 22, 25, 20, 23, 24, 21, 28]
         self.StatusGroups = {}
         for i in range(len(valves)):
             self.StatusGroups[valves[i]] = StatusGroup(valves[i],valve_ids[i],self.valve_signals)
@@ -370,14 +370,17 @@ class MainWindow(QMainWindow):
 
     def toggle_5ways(self):
         if self._5ways_open:
-            self.StatusGroups["LOX 5-WAY"].close_act()
-            self.StatusGroups["Propane 5-WAY"].close_act()
-            print("Closing 5-Way Solenoids")
+            self.StatusGroups["LOX 5-WAY"].status.switch()
+            self.StatusGroups["Propane 5-WAY"].status.switch()
+            self.StatusGroups["Both 5-WAY"].close_act()
+            # print("Closing 5-Way Solenoids")
+            self._5ways_open = False
         else:
-            self.StatusGroups["LOX 5-WAY"].open_act()
-            self.StatusGroups["Propane 5-WAY"].open_act()
-            print("Opening 5-Way Solenoids")
-        self._5ways_open = not self._5ways_open
+            self.StatusGroups["LOX 5-WAY"].status.switch()
+            self.StatusGroups["Propane 5-WAY"].status.switch()
+            self.StatusGroups["Both 5-WAY"].open_act()
+            # print("Opening 5-Way Solenoids")
+            self._5ways_open = True
 
 
     def showTime(self):

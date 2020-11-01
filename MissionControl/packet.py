@@ -9,10 +9,11 @@ class Packet:
     def __init__(self, data, id = None):
         self.debug = False
         self.is_valid = False
+        self.sensor_id = None
         # If no ID is passed in, `data` will be a raw data packet to be decoded
         if not id:
             self.sensor_id, self.data, self.checksum = self.decode_message(data)
-            if self.sensor_id and self.data and self.checksum:
+            if self.sensor_id != None and self.data and self.checksum:
                 self.encoded_message = data
             else:
                 self.encoded_message = None
@@ -73,7 +74,8 @@ class Packet:
             checksum_data = data[1:tracker]
             new_sum = fletcher16(checksum_data)
             new_sum = new_sum.lower()
-            print("Old_sum: ", old_sum, "New_sum", new_sum)
+            if self.debug:
+                print("Old_sum: ", old_sum, "New_sum", new_sum)
             if old_sum != new_sum:
                 self.is_valid = False
                 if self.debug:
@@ -81,7 +83,7 @@ class Packet:
                 return None, None, None
 
             # Get sensor data.
-            data = checksum_data.split(",")
+            data = checksum_data.split(",")[1:]
             data = [float(data[i]) for i in range(len(data))]
             self.is_valid = True
             if self.debug:

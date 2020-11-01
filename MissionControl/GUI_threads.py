@@ -19,6 +19,7 @@ import serial.tools.list_ports
 # Custom modules
 from Sensor_IDs import *
 from packet import *
+from sensorParsing import *
 
 """
 GUI_threads.py
@@ -42,6 +43,7 @@ Misc variables:
     N/A
 """
 
+highPressureConversionFunc = initHighPressure()
 
 class SerialThread(QRunnable):
     '''
@@ -127,7 +129,7 @@ class SerialThread(QRunnable):
         self.low_pt_ids = [1,2,3,4]
         self.high_pt_id = 5
         self.packet_gen = self.packet_generator()
-        self.simulate = True
+        self.simulate = False
 
 
     @pyqtSlot()
@@ -263,8 +265,8 @@ class SerialThread(QRunnable):
                     self.headers = "time elapsed, packet"
                     f.write(self.headers+"\n")
 
-                if not self.simulate:
-                    ser.write("0\r\n".encode('utf-8'))
+                # if not self.simulate:
+                #     ser.write("0\r\n".encode('utf-8'))
 
                 self.initializing = False
 
@@ -311,9 +313,22 @@ class SerialThread(QRunnable):
                     # print(len(plot_ref_list[0]))
                     plot = self.plot_ref_list[tab][graph]
 
-
-                    data.append(float(pack.get_data()[i]))
-                    toDisplay = data[-NUMDATAPOINTS:]
+                    val = float(pack.get_data()[i])
+                    if id == 1:
+                        if i == 4:
+                            if float(val) > 1702887:
+                                val = highPressureConversionFunc(float(val))
+                            else:
+                                val = 0
+                        else:
+                            val = lowPressureConversion(float(val))
+                    # if val < 0:
+                    #     if len(data) > 0:
+                    #         val = data[-1]
+                    #     else:
+                    #         val = 0
+                    data.append(val)
+                    toDisplay_list[i] = data[-NUMDATAPOINTS:]
                     if should_print:
                         print("Val: {}".format(float(val)))
                         print(len(data), data)
@@ -321,8 +336,9 @@ class SerialThread(QRunnable):
                         print("Id: {} Sensor: {}".format(id, sensor_id_to_name[id]))
 
                     if display_all:
-                        plot.set_ydata(data)
+                        # plot.set_ydata(data)
                         plot.set_xdata(range(len(data)))
+                        print("Displaying all data")
                     else:
                         plot.set_ydata(toDisplay)
                         plot.set_xdata(range(len(toDisplay)))
@@ -348,16 +364,15 @@ class SerialThread(QRunnable):
                     canvas.axes.relim()
                     canvas.axes.autoscale_view()
                     canvas.draw()
-                    repeat = 1
                     leg = canvas.axes.legend(loc="upper right")
-                    leg.get_texts()[0].set_text("{:.1f}".format(sum(toDisplay[-10:-1])/10))
+                    leg.get_texts()[0].set_text("{:.1f}".format(sum(toDisplay[-11:-1])/10))
                 # else:
                 #     repeat += 1
 
                 # Sending Commands for valve opening
                 for name in self.valve_signals.keys():
                     if (self.valve_signals[name] != 0):
-                        print(self.valve_signals[name])
+                        print("Sending:",self.valve_signals[name])
                         byteNum = (str(self.valve_signals[name]) + "\r\n").encode('utf-8')
                         if not self.simulate:
                             ser.write(byteNum)

@@ -109,5 +109,6 @@ valve_name_to_id = {
         "prop_2_way"    : 23,
         "prop_5_way"    : 24,
         "prop_gems"     : 25,
-        "high_pressure" : 26
+        "high_pressure" : 26,
+
 }
