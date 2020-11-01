@@ -29,6 +29,32 @@ sensor_name_to_text = {
 
 
 sensor_name_to_id = {
+            "temperature"               : 0,
+            "pressure"                  : 1,
+            "battery"                   : 2,
+}
+
+sensor_id_to_name = {
+        0 : "temperature",
+        1: "pressure",
+        2: "battery"
+}
+
+sensor_graph_mapping = {
+        "temperature" : [[2,0,"LOX Tree"], [2,1,"LOX Heater"]],
+        "pressure" : [[0,0,"LOX Tank"], [0,1,"Prop Tank"], [0,2,"Lox Injector"], [0,3,"Prop Injector"], [0,4,"High Pressure"]],
+        "battery" : [[2,2,"Voltage"], [2,3,"Power"], [2,4,"Energy Consumed"]]
+}
+
+sensor_id_graph_mapping = {
+        0 : [[2,0,"LOX Tree"], [2,1,"LOX Heater"]],
+        1 : [[0,0,"LOX Tank"], [0,1,"Prop Tank"], [0,2,"Lox Injector"], [0,3,"Prop Injector"], [1,0,"High Pressure"]],
+        2 : [[2,2,"Voltage"], [2,3,"Power"], [2,4,"Energy Consumed"]]
+}
+
+tab_graph_titles = [['LOX Tank', 'Prop Tank', 'LOX Injector', 'Prop Injector'],['High Pressure'],['LOX Tree', 'LOX Heater', 'Voltage', 'Power', 'Energy Consumed','']]
+
+sensor_name_to_id = {
             "lox_injector"              : 1,
             "prop_injector"             : 2,
             "lox_tank"                  : 3,

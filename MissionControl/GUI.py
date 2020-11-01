@@ -182,8 +182,12 @@ class MainWindow(QMainWindow):
         self.all_sensors['high_pt'] = ["pressurant"]
         self.all_sensors['temp'] = ["temp1","temp2","temp3","temp4","temp5","temp6"]
         self.all_sensors['load_cell'] = ["load_cell_1","load_cell_1"]
+        # self.all_sensor = ['pressure', 'temperature', 'battery']
+        self.all_sensors["low_pt"] = "pressure"
+        self.all_sensors["high_pt"] = "pressure"
+        self.all_sensors["temp"] = "temperature"
 
-
+        self.graph_nums = [4,1,6]
         mainlayout = QGridLayout()
 
         # row 0
@@ -309,13 +313,15 @@ class MainWindow(QMainWindow):
 
         # Dynamically create the correct number of graphs based off input numbers
         graphWidget = QTabWidget()
-        self.graphs = {}
+        self.graphs = []
         self.figures = {}
-        for sensor_type in self.sensor_types:
+        self.tab_titles = ["Low Pressure", "High Pressure", "Misc."]
+        for i in range(3): #self.sensor_types:
             # TODO: make graph allocation more generalized,
             # since we may have more than 6 of a given type of sensor (temp?)
-            self.graphs[sensor_type] = []
-            num = self.sensor_max_nums[sensor_type]
+            # self.graphs[sensor_type] = []
+            # num = self.sensor_max_nums[sensor_type]
+            num = self.graph_nums[i]
             tabWidget = QWidget()
             tabGrid = QGridLayout()
             if num == 1:
@@ -329,14 +335,15 @@ class MainWindow(QMainWindow):
 
             # fig = Figure(figsize=(5, 4), dpi=100)
             # self.figures[sensor] = fig
-            for sensor in self.all_sensors[sensor_type]:
+            self.graphs.append([])
+            for sensor in range(num):
                 canvas = MplCanvas(self,width=5, height=4, dpi=100)
                 # Add canvas to a dictionary where key is the unique ID
-                self.graphs[sensor_name_to_id[sensor]] = canvas
+                self.graphs[i].append(canvas)
                 row,col = next(grid_pos)
                 tabGrid.addWidget(canvas,row,col)
             tabWidget.setLayout(tabGrid)
-            graphWidget.addTab(tabWidget, sensor_name_to_text[sensor_type])
+            graphWidget.addTab(tabWidget, self.tab_titles[i])
         mainlayout.addWidget(graphWidget,1,1,2,1)
 
 
@@ -444,7 +451,7 @@ class Entry(QMainWindow):
         label_names = ['Base Filename:', 'Folder:', 'File Path:','# Low PTs:', '# High PTs:', '# Temp Sensors:']
         label_ids = ['base_file', 'folder', 'file_path', 'low_pt', 'high_pt', 'temp']
         self.labels = {}
-        line_edit_defaults = ['waterflow', self.storage_path, '', '4', '1','0']
+        line_edit_defaults = ['waterflow', self.storage_path, '', '4', '1','6']
         self.line_edits = {}
         label_font = QFont("Lucida Grande",14, QFont.Bold)
         for i,name in enumerate(label_names):

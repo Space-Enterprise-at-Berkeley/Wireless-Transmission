@@ -99,18 +99,30 @@ class SerialThread(QRunnable):
         self.plot_ref_dict = {} #[self._plot_ref]
         self.canvas_dict = {}
 
-        # Use unique packet IDs as keys to create graphs
-        for id in sensor_ids:
-            # Only plot for sensors that actually have graphs associated
-            if id in self.graphs.keys():
-                canvas = self.graphs[id]
-                self.canvas_dict[id] = canvas
-                # Get plot reference that can be used to update graph later
-                plot_refs = canvas.axes.plot(xdata, ydata, 'b', label="test2")
-                self.plot_ref_dict[id] = plot_refs[0]
-                canvas.axes.set_title(sensor_id_to_name[id]) #TODO need to use "pretty" version of name as title
-                canvas.axes.legend(loc='upper right')
+        # # Use unique packet IDs as keys to create graphs
+        # for id in sensor_ids:
+        #     # Only plot for sensors that actually have graphs associated
+        #     if id in self.graphs.keys():
+        #         canvas = self.graphs[id]
+        #         self.canvas_dict[id] = canvas
+        #         # Get plot reference that can be used to update graph later
+        #         plot_refs = canvas.axes.plot(xdata, ydata, 'b', label="test2")
+        #         self.plot_ref_dict[id] = plot_refs[0]
+        #         canvas.axes.set_title(sensor_id_to_name[id]) #TODO need to use "pretty" version of name as title
+        #         canvas.axes.legend(loc='upper right')
 
+        self.plot_ref_list = []
+        for i in range(len(self.graphs)):
+            self.plot_ref_list.append([])
+            for j in range(len(self.graphs[i])):
+                canvas = self.graphs[i][j]
+                # Get plot reference that can be used to update graph later
+                plot_refs = canvas.axes.plot(xdata, ydata, 'b', label="No Data")
+                self.plot_ref_list[i].append(plot_refs[0])
+                print(i,j)
+                canvas.axes.set_title(tab_graph_titles[i][j]) #TODO need to use "pretty" version of name as title
+                canvas.axes.legend(loc='upper right')
+        self.packet_ids = [0,1,2]
         # ---------- Simulation Config ---------------------------------
         self.low_pt_ids = [1,2,3,4]
         self.high_pt_id = 5
@@ -187,10 +199,17 @@ class SerialThread(QRunnable):
                     currLine = str(ser.readline())
                     start = time.time()
                     is_packet = False
+                    pack = ''
                     while not is_packet and "low pressure sensors" not in currLine and "low pt" not in currLine:
                         currLine = str(ser.readline())
+                        print("Received line: ",currLine)
+                        # currLine = "b'{1,4297496.00,879057.00,6773916.00,6723986.00,4853986.00|a306}\r\r\n'"
                         pack = Packet(currLine)
-                        is_packet = pack.is_valid()
+                        # print(type(pack))
+                        # print(pack.get_id())
+                        # print(pack.is_valid)
+                        is_packet = pack.is_valid
+                        print(pack.is_valid)
                         if (currLine != "b''"):
                             print(currLine)
                             if time.time() - start > 1.5:
@@ -230,10 +249,13 @@ class SerialThread(QRunnable):
 
                 data_dict = {}
                 toDisplay_dict = {}
-                for id in sensor_ids:
-                    if id in self.graphs.keys():
-                        data_dict[id] = []
-                        toDisplay_dict[id] = []
+                for id in self.packet_ids:
+                    data_dict[id] = []
+                    toDisplay_dict[id] = []
+                    for i in range(len(sensor_id_graph_mapping[id])):
+                        data_dict[id].append([])
+                        toDisplay_dict[id].append([])
+
 
 
                 print("Writing raw data to: {}".format(self.raw_filename))
@@ -275,14 +297,22 @@ class SerialThread(QRunnable):
 
                 # if the value is -1, that means there is no data for that sensor
                 # Retrieve and update the appropriate datalists and
-                val = pack.get_data()[1]
-                if int(val) != -1:
-                    id = pack.get_id()
-                    data = data_dict[id]
-                    toDisplay = toDisplay_dict[id]
-                    plot = self.plot_ref_dict[id]
 
-                    data.append(float(val))
+                id = pack.get_id()
+                arrangement_list = sensor_id_graph_mapping[id]
+                data_list = data_dict[id]
+                toDisplay_list = toDisplay_dict[id]
+                for i in range(len(arrangement_list)):
+                    data = data_list[i]
+                    toDisplay = toDisplay_list[i]
+                    tab, graph, _ = arrangement_list[i]
+                    # print("tab ", tab, "graph ",graph)
+                    # print(len(plot_ref_list))
+                    # print(len(plot_ref_list[0]))
+                    plot = self.plot_ref_list[tab][graph]
+
+
+                    data.append(float(pack.get_data()[i]))
                     toDisplay = data[-NUMDATAPOINTS:]
                     if should_print:
                         print("Val: {}".format(float(val)))
@@ -300,18 +330,29 @@ class SerialThread(QRunnable):
                 if should_print:
                     should_print = True
 
-                # update graph display & rescale based off data
-                if display: #and repeat % 2 == 0:
+                # # update graph display & rescale based off data
+                # if display: #and repeat % 2 == 0:
+                id = pack.get_id()
+                arrangement_list = sensor_id_graph_mapping[id]
+                data_list = data_dict[id]
+                toDisplay_list = toDisplay_dict[id]
+                for i in range(len(arrangement_list)):
+                    data = data_list[i]
+                    toDisplay = toDisplay_list[i]
+                    tab, graph, _ = arrangement_list[i]
+                    plot = self.plot_ref_list[tab][graph]
 
-                    canvas = self.canvas_dict[pack.get_id()]
+
+                    # canvas = self.canvas_dict[pack.get_id()]
+                    canvas = self.graphs[tab][graph]
                     canvas.axes.relim()
                     canvas.axes.autoscale_view()
                     canvas.draw()
                     repeat = 1
                     leg = canvas.axes.legend(loc="upper right")
                     leg.get_texts()[0].set_text("{:.1f}".format(sum(toDisplay[-10:-1])/10))
-                else:
-                    repeat += 1
+                # else:
+                #     repeat += 1
 
                 # Sending Commands for valve opening
                 for name in self.valve_signals.keys():
@@ -396,7 +437,7 @@ class SerialThread(QRunnable):
                 for j in range(4):
                     pack = Packet([funcs[j](x)],id=self.low_pt_ids[j])
 
-                    yield pack.encode_data()
+                    yield "{1,4297496.00,879057.00,6773916.00,6723986.00,4853986.00|a306}" #pack.encode_data()
                 x += 1
 
 
