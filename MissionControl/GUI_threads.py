@@ -129,7 +129,7 @@ class SerialThread(QRunnable):
         self.low_pt_ids = [1,2,3,4]
         self.high_pt_id = 5
         self.packet_gen = self.packet_generator()
-        self.simulate = False
+        self.simulate = True
 
 
     @pyqtSlot()
@@ -313,6 +313,7 @@ class SerialThread(QRunnable):
                     # print(len(plot_ref_list[0]))
                     plot = self.plot_ref_list[tab][graph]
 
+                    print()
                     val = float(pack.get_data()[i])
                     if id == 1:
                         if i == 4:
@@ -449,10 +450,13 @@ class SerialThread(QRunnable):
         x = 0
         while True:
             for i in range(2):
+                data = []
                 for j in range(4):
-                    pack = Packet([funcs[j](x)],id=self.low_pt_ids[j])
+                    data.append(funcs[j](x))
+                data.append(1200)
+                pack = Packet(data,id=1)
 
-                    yield "{1,4297496.00,879057.00,6773916.00,6723986.00,4853986.00|a306}" #pack.encode_data()
+                yield pack.encode_data() #"{1,4297496.00,879057.00,6773916.00,6723986.00,4853986.00|a306}" #pack.encode_data()
                 x += 1
 
 

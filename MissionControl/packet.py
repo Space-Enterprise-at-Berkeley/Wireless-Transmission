@@ -39,6 +39,7 @@ class Packet:
         encoding = str(self.sensor_id)
         for i in self.data:
             encoding += "," + str(i)
+            
         checksum = fletcher16(encoding)
         self.checksum = checksum
         encoding = "{" + encoding + "|" + self.checksum + "}"
