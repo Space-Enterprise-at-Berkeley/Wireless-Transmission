@@ -1,11 +1,21 @@
+import select
+import random
+import sys
+import traceback
+import time
+import serial.tools.list_ports
+import serial
+import sensorParsing
+import csv
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 import matplotlib
 matplotlib.use('Qt5Agg')
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
 
 import time, traceback, sys, random, select
 import numpy as np
@@ -44,6 +54,9 @@ Misc variables:
 """
 
 highPressureConversionFunc = initHighPressure()
+
+initHighPressure()
+
 
 class SerialThread(QRunnable):
     '''
@@ -98,7 +111,7 @@ class SerialThread(QRunnable):
         self.graphs = graphs
 
         # Create canvases based on the number of sensors that are actually in use
-        self.plot_ref_dict = {} #[self._plot_ref]
+        self.plot_ref_dict = {}  # [self._plot_ref]
         self.canvas_dict = {}
 
         # # Use unique packet IDs as keys to create graphs
@@ -131,7 +144,6 @@ class SerialThread(QRunnable):
         self.packet_gen = self.packet_generator()
         self.simulate = True
 
-
     @pyqtSlot()
     def run(self):
         '''
@@ -153,7 +165,6 @@ class SerialThread(QRunnable):
                     return line.decode('utf-8').strip()
             else:
                 return next(self.packet_gen)
-
 
         last_first_value = 0
         last_values = [0] * 5
@@ -289,8 +300,7 @@ class SerialThread(QRunnable):
                     with open(self.filename,"a") as fe:
                         toWrite = str(time_recevied-self.test_start)+ "," + line + "\n"
                         fe.write(toWrite)
-                        writer = csv.writer(fe,delimiter=",")
-
+                        writer = csv.writer(fe, delimiter=",")
 
                 # TODO - add logic to take other actions depending on packet ID (e.g. )
                 # @Bridget - this is where something could be done like this:
@@ -400,22 +410,20 @@ class SerialThread(QRunnable):
 
         self.stop_thread("Thread Stopped")
 
-
-    def stop_thread(self,msg=''):
+    def stop_thread(self, msg=''):
         SerialThread.running = False
         if self.ser:
             self.ser.close()
         if msg:
-            print("{}: ".format(self.name),msg)
+            print("{}: ".format(self.name), msg)
         self.signals.finished.emit()
-
 
     def update_plot(self):
 
-            self._plot_ref.set_ydata(self.ydata)
-            self._plot_ref.set_xdata(self.xdata)
+        self._plot_ref.set_ydata(self.ydata)
+        self._plot_ref.set_xdata(self.xdata)
 
-            self.canvas.draw()
+        self.canvas.draw()
 
     def start_saving_test(self, filename, metadata):
         if self.headers:
