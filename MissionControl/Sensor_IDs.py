@@ -54,52 +54,6 @@ sensor_id_graph_mapping = {
 
 tab_graph_titles = [['LOX Tank', 'Prop Tank', 'LOX Injector', 'Prop Injector'],['High Pressure'],['LOX Tree', 'LOX Heater', 'Voltage', 'Power', 'Energy Consumed','']]
 
-sensor_name_to_id = {
-            "lox_injector"              : 1,
-            "prop_injector"             : 2,
-            "lox_tank"                  : 3,
-            "prop_tank"                 : 4,
-            "pressurant"                : 5,
-            "temp"                      : 6,
-            "GPS"                       : 7,
-            "GPS Aux"                   : 8,
-            "barometer"                 : 9,
-            "load_cell_left"             : 10,
-            "load_cell_right"            : 11,
-            "board"                     : 12,
-            "radio"                     : 13,
-            "temp1"                     : 14,
-            "temp2"                     : 15,
-            "temp3"                     : 16,
-            "temp4"                     : 17,
-            "temp5"                     : 18,
-            "temp6"                     : 19,
-}
-
-sensor_id_to_name = {
-        1 : "lox_injector" ,
-        2 : "prop_injector" ,
-        3 : "lox_tank" ,
-        4 : "prop_tank" ,
-        5 : "high_pt",
-        6 : "temp",
-        7 : "GPS",
-        8 : "GPS Aux",
-        9 : "barometer",
-        10 : "load_cell_left" ,
-        11 : "load_cell_right",
-        12 : "board",
-        13 : "radio",
-        14 : "temp1",
-        15 : "temp2",
-        16 : "temp3",
-        17 : "temp4",
-        18 : "temp5",
-        19 : "temp6",
-        40 : "load_cell_1",
-        41 : "load_cell_2"
-}
-
 sensor_ids = sensor_id_to_name.keys()
 
 valve_name_to_id = {
@@ -110,5 +64,6 @@ valve_name_to_id = {
         "prop_5_way"    : 24,
         "prop_gems"     : 25,
         "high_pressure" : 26,
+        "both_5_way"    : 28
 
 }

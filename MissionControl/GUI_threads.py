@@ -295,12 +295,6 @@ class SerialThread(QRunnable):
 
             if pack.encoded_message != None:
 
-                # Saving data to files - how to write all at once for data cominng in a different speeds?
-                if self.save_test:
-                    with open(self.filename,"a") as fe:
-                        toWrite = str(time_recevied-self.test_start)+ "," + line + "\n"
-                        fe.write(toWrite)
-                        writer = csv.writer(fe, delimiter=",")
 
                 # TODO - add logic to take other actions depending on packet ID (e.g. )
                 # @Bridget - this is where something could be done like this:
@@ -311,6 +305,21 @@ class SerialThread(QRunnable):
                 # Retrieve and update the appropriate datalists and
 
                 id = pack.get_id()
+
+                # Saving data to files - how to write all at once for data cominng in a different speeds?
+                if self.save_test:
+                    with open(self.filename,"a") as fe:
+                        if id == 0:
+                            print_str = "{},{},{},{},0,0,0,0,0,0,0,0".format(*(pack.get_data()))
+                        elif id == 1:
+                            print_str = "0,0,{},{},{},{},{},0,0,0,0,0".format(*(pack.get_data()))
+                        elif id == 2:
+                            print_str = "0,0,0,0,0,0,0,0,0,{},{},{}".format(*(pack.get_data()))
+
+                        toWrite = str(time_recevied-self.test_start)+ "," + print_str + "\n"
+                        fe.write(toWrite)
+                        writer = csv.writer(fe, delimiter=",")
+
                 arrangement_list = sensor_id_graph_mapping[id]
                 data_list = data_dict[id]
                 toDisplay_list = toDisplay_dict[id]

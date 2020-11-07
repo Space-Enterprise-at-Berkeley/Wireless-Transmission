@@ -5,8 +5,6 @@ from scipy.interpolate import interp1d
 
 import os
 
-global highPressureConversionFunc
-
 
 def initHighPressure():
     data = pd.read_csv(

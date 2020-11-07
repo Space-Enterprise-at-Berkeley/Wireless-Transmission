@@ -39,7 +39,7 @@ class Packet:
         encoding = str(self.sensor_id)
         for i in self.data:
             encoding += "," + str(i)
-            
+
         checksum = fletcher16(encoding)
         self.checksum = checksum
         encoding = "{" + encoding + "|" + self.checksum + "}"
@@ -77,7 +77,7 @@ class Packet:
             new_sum = new_sum.lower()
             if self.debug:
                 print("Old_sum: ", old_sum, "New_sum", new_sum)
-            if old_sum != new_sum:
+            if old_sum.lower() != new_sum.lower():
                 self.is_valid = False
                 if self.debug:
                     print("Calculated checksum does not match the transmitted checksum")
