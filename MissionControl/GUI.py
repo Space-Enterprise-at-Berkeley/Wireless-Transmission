@@ -209,7 +209,7 @@ class MainWindow(QMainWindow):
 
         valves = ["Pressurant", "LOX GEMS", "Propane GEMS", "LOX 2-WAY",
         "Propane 2-WAY", "LOX 5-WAY", "Propane 5-WAY", "Both 5-WAY"]
-        valve_ids = [26, 22, 25, 20, 23, 24, 21, 28]
+        valve_ids = [26, 22, 25, 20, 23, 21, 24, 28]
         self.StatusGroups = {}
         for i in range(len(valves)):
             self.StatusGroups[valves[i]] = StatusGroup(valves[i],valve_ids[i],self.valve_signals)

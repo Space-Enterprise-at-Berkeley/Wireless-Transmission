@@ -7,6 +7,7 @@ Packet object format: integer id, integer list data, and string checksum.
 
 class Packet:
     def __init__(self, data, id = None):
+        self.raw_data = 'No raw data'
         self.debug = False
         self.is_valid = False
         self.sensor_id = None
@@ -46,6 +47,7 @@ class Packet:
         return encoding
 
     def decode_message(self, data):
+        self.raw_data = data
         if "{" in data and "|" in data and "}" in data:
             start = data.index("{")
             pipe = data.index("|")
