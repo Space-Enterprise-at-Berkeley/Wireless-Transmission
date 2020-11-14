@@ -114,18 +114,6 @@ class SerialThread(QRunnable):
         self.plot_ref_dict = {}  # [self._plot_ref]
         self.canvas_dict = {}
 
-        # # Use unique packet IDs as keys to create graphs
-        # for id in sensor_ids:
-        #     # Only plot for sensors that actually have graphs associated
-        #     if id in self.graphs.keys():
-        #         canvas = self.graphs[id]
-        #         self.canvas_dict[id] = canvas
-        #         # Get plot reference that can be used to update graph later
-        #         plot_refs = canvas.axes.plot(xdata, ydata, 'b', label="test2")
-        #         self.plot_ref_dict[id] = plot_refs[0]
-        #         canvas.axes.set_title(sensor_id_to_name[id]) #TODO need to use "pretty" version of name as title
-        #         canvas.axes.legend(loc='upper right')
-
         self.plot_ref_list = []
         for i in range(len(self.graphs)):
             self.plot_ref_list.append([])
@@ -137,12 +125,12 @@ class SerialThread(QRunnable):
                 print(i,j)
                 canvas.axes.set_title(tab_graph_titles[i][j]) #TODO need to use "pretty" version of name as title
                 canvas.axes.legend(loc='upper right')
-        self.packet_ids = [0,1,2]
+        self.packet_ids = sensor_id_graph_mapping.keys()
         # ---------- Simulation Config ---------------------------------
         self.low_pt_ids = [1,2,3,4]
         self.high_pt_id = 5
         self.packet_gen = self.packet_generator()
-        self.simulate = False
+        self.simulate = True
         self.interpolate = True
 
     @pyqtSlot()
@@ -276,7 +264,7 @@ class SerialThread(QRunnable):
 
                 print("Writing raw data to: {}".format(self.raw_filename))
                 with open(self.raw_filename,"a") as f:
-                    self.headers = "time elapsed, packet"
+                    self.headers = "time elapsed, loxTankPressure, propTankPressure, loxInjectorPressure, propInjectorPressure, highPressure, loxTreeTemp, loxHeater, boardVoltage, energyConsumed, loxTankTemp, chamberTemp1, chamberTemp2, chamberTemp3"
                     f.write(self.headers+"\n")
 
                 # if not self.simulate:
@@ -288,6 +276,7 @@ class SerialThread(QRunnable):
 
             # try:
             line = getLatestSerialInput()
+            print(line)
             pack = Packet(line.strip())
             time_recevied = time.time()
             #Record exactly what was received, even if is invalid packet
@@ -309,92 +298,100 @@ class SerialThread(QRunnable):
 
                 id = pack.get_id()
 
-                # Saving data to files - how to write all at once for data cominng in a different speeds?
-                if self.save_test:
-                    with open(self.filename,"a") as fe:
-                        if id == 0:
-                            print_str = "{},{},NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN".format(*(pack.get_data()))
-                        elif id == 1:
-                            print_str = "NaN,NaN,{},{},{},{},{},NaN,NaN,NaN".format(*(pack.get_data()))
-                        elif id == 2:
-                            print_str = "NaN,NaN,NaN,NaN,NaN,NaN,NaN,{},{},{}".format(*(pack.get_data()))
+                if id in sensor_id_graph_mapping.keys():
 
-                        toWrite = str(time_recevied-self.test_start)+ "," + print_str + "\n"
-                        fe.write(toWrite)
-                        writer = csv.writer(fe, delimiter=",")
+                    # Saving data to files - how to write all at once for data cominng in a different speeds?
+                    if self.save_test:
+                        with open(self.filename,"a") as fe:
+                            if id == 0:
+                                print_str = "{},{},NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN".format(*(pack.get_data()))
+                            elif id == 1:
+                                print_str = "NaN,NaN,{},{},{},{},{},NaN,NaN,NaN,NaN,NaN,NaN,NaN".format(*(pack.get_data()))
+                            elif id == 2:
+                                print_str = "NaN,NaN,NaN,NaN,NaN,NaN,NaN,{},{},{},NaN,NaN,NaN,NaN".format(*(pack.get_data()))
+                            elif id == 4:
+                                print_str = "NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,{},{},{},{}".format(*(pack.get_data()))
 
-                arrangement_list = sensor_id_graph_mapping[id]
-                data_list = data_dict[id]
-                toDisplay_list = toDisplay_dict[id]
-                if len(arrangement_list) == len(pack.get_data()):
-                    for i in range(len(arrangement_list)):
-                        data = data_list[i]
-                        toDisplay = toDisplay_list[i]
-                        tab, graph, _ = arrangement_list[i]
-                        # print("tab ", tab, "graph ",graph)
-                        # print(len(plot_ref_list))
-                        # print(len(plot_ref_list[0]))
-                        plot = self.plot_ref_list[tab][graph]
-                        val = float(pack.get_data()[i])
-                        if id == 1:
-                            if i == 4:
-                                print(val)
-                                if float(val) > 1702887:
-                                    if self.interpolate:
-                                        val = highPressureConversionFunc(float(val))
-                                else:
-                                    val = 0
-                            else:
-                                val = lowPressureConversion(float(val))
-                        # if val < 0:
-                        #     if len(data) > 0:
-                        #         val = data[-1]
-                        #     else:
-                        #         val = 0
-                        data.append(val)
-                        toDisplay_list[i] = data[-NUMDATAPOINTS:]
-                        if should_print:
-                            print("Val: {}".format(float(val)))
-                            print(len(data), data)
-                            print(len(toDisplay), toDisplay)
-                            print("Id: {} Sensor: {}".format(id, sensor_id_to_name[id]))
+                            toWrite = str(time_recevied-self.test_start)+ "," + print_str + "\n"
+                            fe.write(toWrite)
+                            writer = csv.writer(fe, delimiter=",")
 
-                        if display_all:
-                            # plot.set_ydata(data)
-                            plot.set_xdata(range(len(data)))
-                            print("Displaying all data")
-                        else:
-                            plot.set_ydata(toDisplay)
-                            plot.set_xdata(range(len(toDisplay)))
 
-                    if should_print:
-                        should_print = True
-
-                    # # update graph display & rescale based off data
-                    # if display: #and repeat % 2 == 0:
-                    id = pack.get_id()
                     arrangement_list = sensor_id_graph_mapping[id]
                     data_list = data_dict[id]
                     toDisplay_list = toDisplay_dict[id]
-                    for i in range(len(arrangement_list)):
-                        data = data_list[i]
-                        toDisplay = toDisplay_list[i]
-                        tab, graph, _ = arrangement_list[i]
-                        plot = self.plot_ref_list[tab][graph]
+                    if len(arrangement_list) == len(pack.get_data()):
+                        for i in range(len(arrangement_list)):
+                            data = data_list[i]
+                            toDisplay = toDisplay_list[i]
+                            tab, graph, _ = arrangement_list[i]
+                            # print("tab ", tab, "graph ",graph)
+                            # print(len(plot_ref_list))
+                            # print(len(plot_ref_list[0]))
+                            plot = self.plot_ref_list[tab][graph]
+                            val = float(pack.get_data()[i])
+                            if id == 1:
+                                if i == 4:
+                                    print(val)
+                                    if float(val) > 1702887:
+                                        if self.interpolate:
+                                            val = highPressureConversionFunc(float(val))
+                                    else:
+                                        val = 0
+                                else:
+                                    val = lowPressureConversion(float(val))
+                            # if val < 0:
+                            #     if len(data) > 0:
+                            #         val = data[-1]
+                            #     else:
+                            #         val = 0
+                            data.append(val)
+                            toDisplay_list[i] = data[-NUMDATAPOINTS:]
+                            if should_print:
+                                print("Val: {}".format(float(val)))
+                                print(len(data), data)
+                                print(len(toDisplay), toDisplay)
+                                print("Id: {} Sensor: {}".format(id, sensor_id_to_name[id]))
+
+                            if display_all:
+                                # plot.set_ydata(data)
+                                plot.set_xdata(range(len(data)))
+                                print("Displaying all data")
+                            else:
+                                plot.set_ydata(toDisplay)
+                                plot.set_xdata(range(len(toDisplay)))
+
+                        if should_print:
+                            should_print = True
+
+                        # # update graph display & rescale based off data
+                        # if display: #and repeat % 2 == 0:
+                        id = pack.get_id()
+                        arrangement_list = sensor_id_graph_mapping[id]
+                        data_list = data_dict[id]
+                        toDisplay_list = toDisplay_dict[id]
+                        for i in range(len(arrangement_list)):
+                            data = data_list[i]
+                            toDisplay = toDisplay_list[i]
+                            tab, graph, _ = arrangement_list[i]
+                            plot = self.plot_ref_list[tab][graph]
 
 
-                        # canvas = self.canvas_dict[pack.get_id()]
-                        canvas = self.graphs[tab][graph]
-                        canvas.axes.relim()
-                        canvas.axes.autoscale_view()
-                        canvas.draw()
-                        leg = canvas.axes.legend(loc="upper right")
-                        leg.get_texts()[0].set_text("{:.1f}".format(sum(toDisplay[-11:-1])/10))
-                    # else:
-                    #     repeat += 1
+                            # canvas = self.canvas_dict[pack.get_id()]
+                            canvas = self.graphs[tab][graph]
+                            canvas.axes.relim()
+                            canvas.axes.autoscale_view()
+                            canvas.draw()
+                            leg = canvas.axes.legend(loc="upper right")
+                            leg.get_texts()[0].set_text("{:.1f}".format(sum(toDisplay[-11:-1])/10))
+                        # else:
+                        #     repeat += 1
+                    else:
+                        print("Data indexing error: Data has {} values but expected {}".format(len(pack.get_data()),len(arrangement_list)))
+                        print(pack.get_data())
+                        print(line)
                 else:
-                    print("Data indexing error: Data has {} values but expected {}".format(len(pack.get_data()),len(arrangement_list)))
-                    print(pack.get_data())
+                    print("Id not in database")
                     print(line)
 
                 # Sending Commands for valve opening
@@ -405,15 +402,16 @@ class SerialThread(QRunnable):
                         if not self.simulate:
                             ser.write(byteNum)
                         self.valve_signals[name] = 0
-                if time.time() - pressure_timer > 3:
-                    pressure_timer = time.time()
-                    data = [data_dict[1][0][-1],data_dict[1][1][-1]]
-                    data = list(map(lambda x: round(x,1),data))
-                    p = Packet(data,id=30)
-                    # print(p.encode_data());
-                    byteNum = (p.encode_data() + "\r\n").encode('utf-8')
-                    if not self.simulate:
-                        ser.write(byteNum)
+                # Sends out a small packet with interpolated tank vals for LCD
+                # if time.time() - pressure_timer > 3:
+                #     pressure_timer = time.time()
+                #     data = [data_dict[1][0][-1],data_dict[1][1][-1]]
+                #     data = list(map(lambda x: round(x,1),data))
+                #     p = Packet(data,id=30)
+                #     # print(p.encode_data());
+                #     byteNum = (p.encode_data() + "\r\n").encode('utf-8')
+                #     if not self.simulate:
+                #         ser.write(byteNum)
 
 
 
@@ -486,15 +484,19 @@ class SerialThread(QRunnable):
 
         x = 0
         while True:
-            for i in range(2):
-                data = []
-                for j in range(4):
-                    data.append(funcs[j](x))
-                data.append(1200)
-                pack = Packet(data,id=1)
 
-                yield pack.encode_data() #"{1,4297496.00,879057.00,6773916.00,6723986.00,4853986.00|a306}" #pack.encode_data()
-                x += 1
+            data = []
+            for j in range(4):
+                data.append(funcs[j](x))
+            data.append(1200)
+            pack = Packet(data,id=1)
+
+            yield pack.encode_data() #"{1,4297496.00,879057.00,6773916.00,6723986.00,4853986.00|a306}" #pack.encode_data()
+            x += 1
+            data = [0,0,0,0]
+            data = list(map(funcs[0],data))
+            pack = Packet(data,id=4)
+            yield pack.encode_data()
 
 
 

@@ -187,7 +187,6 @@ class MainWindow(QMainWindow):
         self.all_sensors["high_pt"] = "pressure"
         self.all_sensors["temp"] = "temperature"
 
-        self.graph_nums = [4,1,6]
         mainlayout = QGridLayout()
 
         # row 0
@@ -315,8 +314,9 @@ class MainWindow(QMainWindow):
         graphWidget = QTabWidget()
         self.graphs = []
         self.figures = {}
-        self.tab_titles = ["Low Pressure", "High Pressure", "Misc."]
-        for i in range(3): #self.sensor_types:
+        self.graph_nums = [4,1,6,4]
+        self.tab_titles = ["Low Pressure", "High Pressure", "Misc.","Temp"]
+        for i in range(4): #self.sensor_types:
             # TODO: make graph allocation more generalized,
             # since we may have more than 6 of a given type of sensor (temp?)
             # self.graphs[sensor_type] = []
