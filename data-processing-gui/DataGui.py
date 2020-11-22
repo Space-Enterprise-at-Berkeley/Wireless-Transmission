@@ -29,23 +29,18 @@ class MyWidget(QMainWindow):
         loadUi('dataanalysis.ui',self)
         #print(os.getcwd())
         self.select_button.clicked.connect(self.loadFile)
+        self.highPressureConversionFunc = self.initHighPressure()
         self.sel_button.clicked.connect(self.sel_tank_data)
         self.sel_button_2.clicked.connect(self.sel_injector_data)
         self.sel_button_3.clicked.connect(self.sel_high)
-        self.highPressureConversionFunc = self.initHighPressure()
+
 
     def loadFile(self):
         self.path = QFileDialog.getOpenFileName()[0]
         self.file = ntpath.basename(self.path)
         self.data_name_label.setText(self.file)
-        self.read_data()
         self.highPressureConversionFunc = self.initHighPressure()
-        self.propane_injector, indices = self.clean_data(self.propane_injector)
-        self.lox_injector, indices = self.clean_data(self.lox_injector)
-        self.propane_tank, indices = self.clean_data(self.propane_tank)
-        self.lox_tank, indices = self.clean_data(self.lox_tank)
-        self.high_pressure, indices = self.clean_data(self.high_pressure)
-        self.time = [t for ind, t in enumerate(self.time) if ind in indices]
+        self.read_data()
         #self.display_all_pressure(show_high=True)
 
     def sel_tank_data(self):
@@ -127,26 +122,34 @@ class MyWidget(QMainWindow):
         self.propane_injector = data[" propInjectorPressure"].to_numpy() #propane injector
         self.high_pressure = data[" highPressure"].to_numpy() #high pressure
 
+        self.propane_injector, indices = self.clean_data(self.propane_injector)
+        self.lox_injector, indices = self.clean_data(self.lox_injector)
+        self.propane_tank, indices = self.clean_data(self.propane_tank)
+        self.lox_tank, indices = self.clean_data(self.lox_tank)
+        self.high_pressure, indices = self.clean_data(self.high_pressure) 
+        self.time = [t for ind, t in enumerate(self.time) if ind in indices]
+
+
         lox_tank2 = []
         prop_tank2 = []
         lox_inj2 = []
         prop_inj2 = []
         high_tank2 = []
-        #for i in self.lox_tank:
-        #    lox_tank2.append(self.lowPressureConversion(float(i)))
-        #for i in self.propane_tank:
-        #    prop_tank2.append(self.lowPressureConversion(float(i)))
-        #for i in self.lox_injector:
-        #    lox_inj2.append(self.lowPressureConversion(float(i)))
-        #for i in self.propane_injector:
-        #    prop_inj2.append(self.lowPressureConversion(float(i)))
-        #for i in self.high_pressure:
-            #high_tank2.append(float(self.highPressureConversion(float(i))))
-        #self.lox_tank = lox_tank2
-        #self.propane_tank = prop_tank2
-        #self.lox_injector = lox_inj2
-        #self.propane_injector = prop_inj2
-        #self.high_pressure = high_tank2
+        for i in self.lox_tank:
+            lox_tank2.append(self.lowPressureConversion(float(i)))
+        for i in self.propane_tank:
+            prop_tank2.append(self.lowPressureConversion(float(i)))
+        for i in self.lox_injector:
+            lox_inj2.append(self.lowPressureConversion(float(i)))
+        for i in self.propane_injector:
+            prop_inj2.append(self.lowPressureConversion(float(i)))
+        for i in self.high_pressure:
+            high_tank2.append(float(self.highPressureConversionFunc(float(i))))
+        self.lox_tank = lox_tank2
+        self.propane_tank = prop_tank2
+        self.lox_injector = lox_inj2
+        self.propane_injector = prop_inj2
+        self.high_pressure = high_tank2
 
     def display_all_pressure(self, start_time = 0, end_time = -1, show_high=False):
         plt.figure(figsize=(20,10))
@@ -447,6 +450,7 @@ class MyWidget(QMainWindow):
             os.getcwd() + "/waterflow_test/high_pt_characterization_10_10")
         highPressureConversionFunc = interp1d(
             data['raw'], data['digital'], kind='quadratic')
+        print('hi')
         # print(type(highPressureConversionFunc))
         # print(highPressureConversionFunc(900))
         return highPressureConversionFunc
