@@ -1,6 +1,8 @@
 DataMonitoring/data
 MissionControl/data
 
+data-processing-gui/__pycache__/
+
 Transmission/.DS_Store
 .DS_Store
 
