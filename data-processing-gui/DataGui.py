@@ -143,13 +143,13 @@ class MyWidget(QMainWindow):
             lox_inj2.append(self.lowPressureConversion(float(i)))
         for i in self.propane_injector:
             prop_inj2.append(self.lowPressureConversion(float(i)))
-        for i in self.high_pressure:
-            high_tank2.append(float(self.highPressureConversionFunc(float(i))))
+        #for i in self.high_pressure:
+        #    high_tank2.append(float(self.highPressureConversionFunc(float(i))))
         self.lox_tank = lox_tank2
         self.propane_tank = prop_tank2
         self.lox_injector = lox_inj2
         self.propane_injector = prop_inj2
-        self.high_pressure = high_tank2
+        #self.high_pressure = high_tank2
 
     def display_all_pressure(self, start_time = 0, end_time = -1, show_high=False):
         plt.figure(figsize=(20,10))
