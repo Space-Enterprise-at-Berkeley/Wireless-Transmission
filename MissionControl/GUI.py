@@ -92,19 +92,19 @@ class StatusGroup(QWidget):
 
     def open_act(self):
         if self.status.closed:
-            pack = Packet('1',id=self.id,)
             self.status.switch()
-            self.valve_signals[self.name] = pack.encode_data()
-            print("Opening " + self.name)
-            print(self.valve_signals[self.name])
+        pack = Packet('1',id=self.id,)
+        self.valve_signals[self.name] = pack.encode_data()
+        print("Opening " + self.name)
+        print(self.valve_signals[self.name])
 
     def close_act(self):
         if not self.status.closed:
-            pack = Packet('0',id=self.id,)
             self.status.switch()
-            self.valve_signals[self.name] = pack.encode_data()
-            print("Closing " + self.name)
-            print(self.valve_signals[self.name])
+        pack = Packet('0',id=self.id,)
+        self.valve_signals[self.name] = pack.encode_data()
+        print("Closing " + self.name)
+        print(self.valve_signals[self.name])
 
 class Status(QWidget):
     def __init__(self, *args, **kwargs):
@@ -239,6 +239,10 @@ class MainWindow(QMainWindow):
         _5way_btn_layout.addWidget(close_5ways_btn)
         _5way_btn_container.setLayout(_5way_btn_layout)
         _5way_btn_container.setMaximumWidth(90)
+        pressure_gems_btn = QPushButton("PRESSURE+GEMS")
+        pressure_gems_btn.setFont(QFont("Helvetica Neue"))
+        pressure_gems_btn.clicked.connect(self.pressure_gems)
+
 
         # Button & Text Fields to control Saving of Data
         self.recording = False
@@ -303,7 +307,10 @@ class MainWindow(QMainWindow):
         valve_layout.addWidget(self.StatusGroups['Propane 5-WAY'],valves_start_row+5,2)
         # row 8
         valve_layout.addWidget(valve_labels['BOTH 5-WAY'],valves_start_row+6,0)
-        valve_layout.addWidget(_5way_btn_container,valves_start_row+6,1,1,2,Qt.AlignCenter)
+        valve_layout.addWidget(_5way_btn_container,valves_start_row+6,1,Qt.AlignCenter)
+        valve_layout.addWidget(pressure_gems_btn,valves_start_row+6,2,Qt.AlignCenter)
+
+
 
         valve_container.setLayout(valve_layout)
         mainlayout.addWidget(valve_container,1,0)
@@ -381,6 +388,17 @@ class MainWindow(QMainWindow):
             self.StatusGroups["Both 5-WAY"].open_act()
             # print("Opening 5-Way Solenoids")
             self._5ways_open = True
+
+    def pressure_gems(self):
+
+        # self.StatusGroups["Pressurant"].status.switch()
+        self.StatusGroups["Pressurant"].open_act()
+        time.sleep(0.5)
+        # self.StatusGroups["Propane GEMS"].status.switch()
+        # self.StatusGroups["LOX GEMS"].status.switch()
+        self.StatusGroups["LOX GEMS"].close_act()
+        time.sleep(0.075)
+        self.StatusGroups["Propane GEMS"].close_act()
 
 
     def showTime(self):

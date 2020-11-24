@@ -130,8 +130,12 @@ class SerialThread(QRunnable):
         self.low_pt_ids = [1,2,3,4]
         self.high_pt_id = 5
         self.packet_gen = self.packet_generator()
-        self.simulate = True
+        self.simulate = False
         self.interpolate = True
+        self.debug = False
+
+        # 207 for 12-bit on-board ADC
+        self.high_threshold = 1702887
 
     @pyqtSlot()
     def run(self):
@@ -151,7 +155,15 @@ class SerialThread(QRunnable):
                             if time.time() - start > 1.5:
                                 start = time.time()
                                 print("looking for low pressure input")
-                    return line.decode('utf-8').strip()
+                    # print(line)
+                    # a = line.decode('utf-8').strip()
+                    # return a
+                    try:
+                        a = line.decode('utf-8').strip()
+                        return a
+                    except:
+                        print("Decoding Error: ",line)
+                        return ''
             else:
                 return next(self.packet_gen)
 
@@ -276,7 +288,8 @@ class SerialThread(QRunnable):
 
             # try:
             line = getLatestSerialInput()
-            print(line)
+            if self.debug:
+                print(line)
             pack = Packet(line.strip())
             time_recevied = time.time()
             #Record exactly what was received, even if is invalid packet
@@ -333,7 +346,7 @@ class SerialThread(QRunnable):
                             if id == 1:
                                 if i == 4:
                                     print(val)
-                                    if float(val) > 1702887:
+                                    if float(val) > self.high_threshold:
                                         if self.interpolate:
                                             val = highPressureConversionFunc(float(val))
                                     else:
@@ -402,6 +415,7 @@ class SerialThread(QRunnable):
                         if not self.simulate:
                             ser.write(byteNum)
                         self.valve_signals[name] = 0
+
                 # Sends out a small packet with interpolated tank vals for LCD
                 # if time.time() - pressure_timer > 3:
                 #     pressure_timer = time.time()
@@ -418,7 +432,7 @@ class SerialThread(QRunnable):
 
             else:
                 print("SerialThread Error: Invalid Telemetry Packet")
-                print(line)
+                print("Error: ",line)
 
             # except Exception as e:
             #     # self.stop_thread("Error in reading loop\nCrash: {}".format(e))
