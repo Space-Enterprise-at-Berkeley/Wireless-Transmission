@@ -49,10 +49,11 @@ sensor_graph_mapping = {
 sensor_id_graph_mapping = {
         0 : [[2,0,"LOX Tree"], [2,1,"LOX Heater"]],
         1 : [[0,0,"LOX Tank"], [0,1,"Prop Tank"], [0,2,"Lox Injector"], [0,3,"Prop Injector"], [1,0,"High Pressure"]],
-        2 : [[2,2,"Voltage"], [2,3,"Power"], [2,4,"Energy Consumed"]]
+        2 : [[2,2,"Voltage"], [2,3,"Power"], [2,4,"Energy Consumed"]],
+        4 : [[3,0,"Lox Tank Temp"], [3,1,"Chamber 1"], [3,2,"Chamber 2"], [3,3,"Chamber 2"]]
 }
 
-tab_graph_titles = [['LOX Tank', 'Prop Tank', 'LOX Injector', 'Prop Injector'],['High Pressure'],['LOX Tree', 'LOX Heater', 'Voltage', 'Power', 'Energy Consumed','']]
+tab_graph_titles = [['LOX Tank', 'Prop Tank', 'LOX Injector', 'Prop Injector'],['High Pressure'],['LOX Tree', 'LOX Heater', 'Voltage', 'Power', 'Energy Consumed',''],['Lox Tank Temp','Chamber Temp 1','Chamber Temp 2','Chamber Temp 3']]
 
 sensor_ids = sensor_id_to_name.keys()
 
