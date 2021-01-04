@@ -21,29 +21,49 @@ from scipy import signal
 from scipy.signal import savgol_filter, lfilter
 from statistics import mean
 import random
+import csv
 
 class MyWidget(QMainWindow):
+
+
     def __init__(self):
         self.file, self.path = '', ''
         super().__init__()
         loadUi('dataanalysis.ui',self)
+        self.y_labels = [self.y_label_2, self.y_label_3, self.y_label_4, self.y_label_5, self.y_label_6, self.y_label_7, self.y_label_8, self.y_label_9, self.y_label_10, self.y_label_11, self.y_label_12]
+        self.x_labels = [self.x_label_2, self.x_label_3, self.x_label_4, self.x_label_5, self.x_label_6, self.x_label_7, self.x_label_8, self.x_label_9, self.x_label_10, self.x_label_11, self.x_label_12]
+
         #print(os.getcwd())
         self.select_button.clicked.connect(self.loadFile)
         self.highPressureConversionFunc = self.initHighPressure()
+        self.sel_button.hide()
+        self.sel_button_2.hide()
+        self.sel_button_3.hide()
         self.sel_button.clicked.connect(self.sel_tank_data)
         self.sel_button_2.clicked.connect(self.sel_injector_data)
         self.sel_button_3.clicked.connect(self.sel_high)
+        self.save_data.clicked.connect(self.store)
 
 
     def loadFile(self):
         self.path = QFileDialog.getOpenFileName()[0]
         self.file = ntpath.basename(self.path)
-        self.data_name_label.setText(self.file)
-        self.highPressureConversionFunc = self.initHighPressure()
-        self.read_data()
-        #self.display_all_pressure(show_high=True)
+        if self.file[(len(self.file)-4):] == ".csv":
+            try:
+                self.data_name_label.setText(self.file)
+                self.highPressureConversionFunc = self.initHighPressure()
+                self.read_data()
+                self.sel_button.show()
+                self.sel_button_2.show()
+                self.sel_button_3.show()
+                #self.display_all_pressure(show_high=True)
+            except:
+                QMessageBox.question(self, 'Notice!', "Wrong File Type or No File Selected.", QMessageBox.Ok)
+        else:
+            QMessageBox.question(self, 'Notice!', "Wrong File Type or No File Selected.", QMessageBox.Ok)
 
     def sel_tank_data(self):
+        self.type = 'tank'
         text, ok = QInputDialog.getText(self, 'Select Box', 'Which Data do you want to view? L for Lox or P for Propane?')
         if ok:
             if text == 'L':
@@ -53,23 +73,21 @@ class MyWidget(QMainWindow):
             else:
                 QMessageBox.question(self, 'Notice!', "Invalid Input.", QMessageBox.Ok)
                 self.datatype = ''
-        if self.datatype == 'lox':
-            self.display_pressure(self.time, self.lox_tank, [])
-            self.new_data = self.detect_peaks(self.lox_tank)
-            self.remove_lines()
-            self.add_lines()
-            self.edit_lines()
-            self.values()
-        elif self.datatype == 'propane':
-            self.display_pressure(self.time, self.propane_tank, [])
-            self.new_data = self.detect_peaks(self.propane_tank)
-            self.remove_lines()
-            self.add_lines()
-            self.edit_lines()
-            self.values()
+        if self.has_done_past():
+            text, ok = QInputDialog.getText(self, 'Select Box', 'You have done this same analysis before. Would you like to see previous results? Y for Yes or N for No and continue the analysis')
+            if ok:
+                if text == 'Y':
+                    self.load_old()
+                else:
+                    self.tank_process()
+            else:
+                self.tank_process()
+        else:
+            self.tank_process()
 
     def sel_injector_data(self):
-        text, ok = QInputDialog.getText(self, 'Select Box', 'Which Injector Data do you want to view? L for Lox or P for Propane?')
+        self.type = 'injector'
+        text, ok = QInputDialog.getText(self, 'Select Box', 'Which Injector Data do you want to view? L for Lox or P for Propane? (Defaults to Lox)')
         if ok:
             if text == 'L':
                 self.datatype = 'lox'
@@ -77,29 +95,69 @@ class MyWidget(QMainWindow):
                 self.datatype = 'propane'
             else:
                 QMessageBox.question(self, 'Notice!', "Invalid Input.", QMessageBox.Ok)
-                self.datatype = ''
-        if self.datatype == 'lox':
-            self.display_pressure(self.time, self.lox_injector, [])
-            self.new_data = self.detect_peaks(self.lox_injector)
-            self.remove_lines()
-            self.add_lines()
-            self.edit_lines()
-            self.values()
-        elif self.datatype == 'propane':
-            self.display_pressure(self.time, self.propane_injector, [])
-            self.new_data = self.detect_peaks(self.propane_injector)
-            self.remove_lines()
-            self.add_lines()
-            self.edit_lines()
-            self.values()
+                self.datatype = 'lox'
+        else:
+            self.datatype == 'lox'
+        
+        if self.has_done_past():
+            text, ok = QInputDialog.getText(self, 'Select Box', 'You have done this same analysis before. Would you like to see previous results? Y for Yes or N for No and continue the analysis')
+            if ok:
+                if text == 'Y':
+                    self.load_old()
+                else:
+                    self.inj_process()
+            else:
+                self.inj_process()
+        else:
+            self.inj_process()
 
-    def sel_high(self):
-        self.display_pressure(self.time, self.high_pressure, [])
-        self.new_data = self.detect_peaks(self.high_pressure)
+    def process(self):
         self.remove_lines()
         self.add_lines()
         self.edit_lines()
         self.values()
+
+    def sel_high(self):
+        
+        self.type = 'high'
+        self.datatype = 'high'
+        if self.has_done_past():
+            text, ok = QInputDialog.getText(self, 'Select Box', 'You have done this same analysis before. Would you like to see previous results? Y for Yes or N for No and continue the analysis')
+            if ok:
+                if text == 'Y':
+                    self.load_old()
+                else:
+                    self.display_pressure(self.time, self.high_pressure, [])
+                    self.new_data = self.detect_peaks(self.high_pressure)
+                    self.process()
+            else:
+                self.display_pressure(self.time, self.high_pressure, [])
+                self.new_data = self.detect_peaks(self.high_pressure)
+                self.process()
+        else:
+            self.display_pressure(self.time, self.high_pressure, [])
+            self.new_data = self.detect_peaks(self.high_pressure)
+            self.process()
+
+    def tank_process(self):
+        if self.datatype == 'lox':
+            self.display_pressure(self.time, self.lox_tank, [])
+            self.new_data = self.detect_peaks(self.lox_tank)
+            self.process()
+        elif self.datatype == 'propane':
+            self.display_pressure(self.time, self.propane_tank, [])
+            self.new_data = self.detect_peaks(self.propane_tank)
+            self.process()
+    
+    def inj_process(self):
+        if self.datatype == 'lox':
+            self.display_pressure(self.time, self.lox_injector, [])
+            self.new_data = self.detect_peaks(self.lox_injector)
+            self.process()
+        elif self.datatype == 'propane':
+            self.display_pressure(self.time, self.propane_injector, [])
+            self.new_data = self.detect_peaks(self.propane_injector)
+            self.process()
 
     def read_data(self):
         f = open(self.path)
@@ -116,39 +174,42 @@ class MyWidget(QMainWindow):
 
         except:
             print("No tank temp or heater")
-        self.lox_tank = data[" loxTankPressure"].to_numpy() # lox tank
-        self.propane_tank = data[" propTankPressure"].to_numpy()  # propane tank
-        self.lox_injector = data[" loxInjectorPressure"].to_numpy()  # lox injector
-        self.propane_injector = data[" propInjectorPressure"].to_numpy() #propane injector
-        self.high_pressure = data[" highPressure"].to_numpy() #high pressure
+        try:
+            self.lox_tank = data[" loxTankPressure"].to_numpy() # lox tank
+            self.propane_tank = data[" propTankPressure"].to_numpy()  # propane tank
+            self.lox_injector = data[" loxInjectorPressure"].to_numpy()  # lox injector
+            self.propane_injector = data[" propInjectorPressure"].to_numpy() #propane injector
+            self.high_pressure = data[" highPressure"].to_numpy() #high pressure
 
-        self.propane_injector, indices = self.clean_data(self.propane_injector)
-        self.lox_injector, indices = self.clean_data(self.lox_injector)
-        self.propane_tank, indices = self.clean_data(self.propane_tank)
-        self.lox_tank, indices = self.clean_data(self.lox_tank)
-        self.high_pressure, indices = self.clean_data(self.high_pressure) 
-        self.time = [t for ind, t in enumerate(self.time) if ind in indices]
+            self.propane_injector, indices = self.clean_data(self.propane_injector)
+            self.lox_injector, indices = self.clean_data(self.lox_injector)
+            self.propane_tank, indices = self.clean_data(self.propane_tank)
+            self.lox_tank, indices = self.clean_data(self.lox_tank)
+            self.high_pressure, indices = self.clean_data(self.high_pressure) 
+            self.time = [t for ind, t in enumerate(self.time) if ind in indices]
+        except:
+            QMessageBox.question(self, 'Notice!', "Wrong data type. Please choose the data again.", QMessageBox.Ok)
 
 
-        lox_tank2 = []
-        prop_tank2 = []
-        lox_inj2 = []
-        prop_inj2 = []
-        high_tank2 = []
-        for i in self.lox_tank:
-            lox_tank2.append(self.lowPressureConversion(float(i)))
-        for i in self.propane_tank:
-            prop_tank2.append(self.lowPressureConversion(float(i)))
-        for i in self.lox_injector:
-            lox_inj2.append(self.lowPressureConversion(float(i)))
-        for i in self.propane_injector:
-            prop_inj2.append(self.lowPressureConversion(float(i)))
+        #lox_tank2 = []
+        #prop_tank2 = []
+        #lox_inj2 = []
+        #prop_inj2 = []
+        #high_tank2 = []
+        #for i in self.lox_tank:
+        #    lox_tank2.append(self.lowPressureConversion(float(i)))
+        #for i in self.propane_tank:
+        #    prop_tank2.append(self.lowPressureConversion(float(i)))
+        #for i in self.lox_injector:
+        #    lox_inj2.append(self.lowPressureConversion(float(i)))
+        #for i in self.propane_injector:
+        #    prop_inj2.append(self.lowPressureConversion(float(i)))
         #for i in self.high_pressure:
         #    high_tank2.append(float(self.highPressureConversionFunc(float(i))))
-        self.lox_tank = lox_tank2
-        self.propane_tank = prop_tank2
-        self.lox_injector = lox_inj2
-        self.propane_injector = prop_inj2
+        #self.lox_tank = lox_tank2
+        #self.propane_tank = prop_tank2
+        #self.lox_injector = lox_inj2
+        #self.propane_injector = prop_inj2
         #self.high_pressure = high_tank2
 
     def display_all_pressure(self, start_time = 0, end_time = -1, show_high=False):
@@ -450,7 +511,6 @@ class MyWidget(QMainWindow):
             os.getcwd() + "/waterflow_test/high_pt_characterization_10_10")
         highPressureConversionFunc = interp1d(
             data['raw'], data['digital'], kind='quadratic')
-        print('hi')
         # print(type(highPressureConversionFunc))
         # print(highPressureConversionFunc(900))
         return highPressureConversionFunc
@@ -460,7 +520,7 @@ class MyWidget(QMainWindow):
 
         peaksall = self.new_data[1] # actual times, not indices.
 
-        data = self.new_data[0]
+        data = self.new_data[0] 
         #print(peaksall)
         #plt.plot(data)
         #for i in peaksall:
@@ -470,30 +530,29 @@ class MyWidget(QMainWindow):
         #display_pressure(time, data, peaksall)
 
         ##taking user input and removing lines
-        user_input, _ = QInputDialog.getText(self, 'Select Box', "Index of line to be removed (starts at 0 like most lists), separated by comma, e.g. 53, 32, 9: (will find the closest line and remove it) ")
+        user_input, _ = QInputDialog.getText(self, 'Select Box', "Index of line to be removed (starts at 0 like most lists), separated by comma, e.g. 53, 32, 9: (will find the closest line and remove it. Invalid inputs will not be counted) ")
         if user_input:
-            a_list =  list(map(int,user_input.split(',')))
-            #print(a_list)
-            #print(peaksall)
+            try:
+                a_list =  list(map(int,user_input.split(',')))
+                a_list.reverse()
+                #print(a_list)
+                #print(peaksall)
 
-            #removing lines at index indicated by user input, using inserts to maintain list length in process
-            for t in a_list:
-                #i, _ = find_closest_element(peaksall, t)
-                del peaksall[t]
-                peaksall.insert(t, 69.69)
+                #removing lines at index indicated by user input
+                for t in a_list:
+                    del peaksall[t]
 
-            #display_pressure(time, data, peaksall)
-
-            peaksall = [x for x in peaksall if x!=69.69]\
-
-            self.mplwid.canvas.axes.clear()
-            self.mplwid.canvas.axes.plot(data)
-            for i in peaksall:
-                for t in i:
-                    self.mplwid.canvas.axes.axvline(t, c='k', lw='1')
-            self.mplwid.canvas.draw()
-            self.new_data = [data, peaksall]
-
+                self.mplwid.canvas.axes.clear()
+                self.mplwid.canvas.axes.plot(data)
+                for i in peaksall:
+                    for t in i:
+                        self.mplwid.canvas.axes.axvline(t, c='k', lw='1')
+                self.mplwid.canvas.draw()
+                self.new_data = [data, peaksall]
+            except:
+                QMessageBox.question(self, 'Notice!', "Invalid Input.", QMessageBox.Ok)
+                self.remove_lines()
+    
     def add_lines(self):
         ##plotting input data
 
@@ -537,44 +596,27 @@ class MyWidget(QMainWindow):
 
         ###shifting lines with user input
         #print(peaksall)
-        user_input2, _ = QInputDialog.getText(self, 'Select Box', "Times of lines to edit, separated by comma, e.g. 103, 58, 12: ")
+        user_input2, _ = QInputDialog.getText(self, 'Select Box', "Index of time to edit (starting at 0), separated by comma, e.g. 0, 2: ")
 
         if user_input2:
             time_list =  list(map(int,user_input2.split(',')))
             #index_list = [find_closest_element(time, t)[0] for t in time_list]
             #print(index_list)
 
-            for i in time_list:
 
-                self.x_label_2.setText(str(i-5))
-                self.x_label_3.setText(str(i-4))
-                self.x_label_4.setText(str(i-3))
-                self.x_label_5.setText(str(i-2))
-                self.x_label_6.setText(str(i-1))
-                self.x_label_7.setText(str(i))
-                self.x_label_8.setText(str(i+1))
-                self.x_label_9.setText(str(i+2))
-                self.x_label_10.setText(str(i+3))
-                self.x_label_11.setText(str(i+4))
-                self.x_label_12.setText(str(i+5))
-                self.y_label_2.setText(str(data[i-5]))
-                self.y_label_3.setText(str(data[i-4]))
-                self.y_label_4.setText(str(data[i-3]))
-                self.y_label_5.setText(str(data[i-2]))
-                self.y_label_6.setText(str(data[i-1]))
-                self.y_label_7.setText(str(data[i]))
-                self.y_label_8.setText(str(data[i+1]))
-                self.y_label_9.setText(str(data[i+2]))
-                self.y_label_10.setText(str(data[i+3]))
-                self.y_label_11.setText(str(data[i+4]))
-                self.y_label_12.setText(str(data[i+5]))
+            for i in time_list:
+                for j in range(11):
+                    self.x_labels[j].setText(str(peaksall[i][0]+j-5))
+                    
+                for j in range(11):       
+                    self.y_labels[j].setText(str(round((data[peaksall[i][0]+j-5]), 6)))
 
                 user_input3, _ = QInputDialog.getText(self, 'Select Box', "Choose time for new line")
                 self.reset()
                 if user_input3:
                     #peak_i, _ = find_closest_element(peaksall, time[i])
-                    peaksall.remove(i)
-                    peaksall.insert(i, np.array([float(user_input3)]))
+                    peaksall.remove(peaksall[i][0])
+                    peaksall.insert(peaksall[i][0], np.array([float(user_input3)]))
                 else:
                     None
 
@@ -597,88 +639,111 @@ class MyWidget(QMainWindow):
         ##data[1] = array of detected peaks
         peaksall = self.new_data[1]
         data = self.new_data[0]
+        if len(peaksall) >= 4:
               
-        ##taking input on data type and returning parameters according to data type
-        ##can probably be done with radios in gui
+            ##taking input on data type and returning parameters according to data type
+            ##can probably be done with radios in gui
+            self.static_label.setText("Static:")
+            self.dyn_label.setText("Dynamic:")
+            self.et_label.setText("Emptying Time:")
+            self.droop_label.setText("Droop:")
+            self.roi_label.setText("Rate of Increase:")
+
+            if "tank" in self.type:
+                static_start_index = int(peaksall[0][0])
+                static_end_index = int(peaksall[1][0])
+                dynamic_start_index= int(peaksall[2][0])
+                dynamic_end_index = int(peaksall[3][0])
+                
+                #print(static_start_index, static_end_index)
+                static_condition = data[static_start_index:static_end_index]
+                static_pressure = mean(static_condition)
+                self.static_change.setText(str(round(static_pressure, 3)))
+                dynamic_condition = data[dynamic_start_index: dynamic_end_index]
+                dynamic_pressure = mean(dynamic_condition)
+                self.dyn_change.setText(str(round(dynamic_pressure, 3)))
+                droop = static_pressure - dynamic_pressure
+                self.dr_change.setText(str(round(droop, 3)))
+                emptying_time = self.time[int(peaksall[3][0])]-self.time[int(peaksall[2][0])]
+                self.emp_change.setText(str(round(emptying_time, 3)))
+                dynamic_rate_of_increase = (data[dynamic_end_index]-data[dynamic_start_index])/emptying_time
+                self.roi_change.setText(str(round(dynamic_rate_of_increase, 3)))
+                self.finaldata = [emptying_time, dynamic_rate_of_increase, dynamic_pressure, static_pressure, droop, "NaN", "NaN"]
+            elif "injector" or "high" in self.type:
+                dynamic_start_index= int(peaksall[0][0])
+                dynamic_end_index = int(peaksall[1][0])
+                
+                dynamic_condition = data[dynamic_start_index: dynamic_end_index]
+                #print("All Peaks:", peaksall)
+                self.static_change.setText("NaN")
+                dynamic_pressure = mean(dynamic_condition)
+                self.dyn_change.setText(str(round(dynamic_pressure,3)))
+                emptying_time = self.time[int(peaksall[1][0])]-self.time[int(peaksall[0][0])]
+                self.emp_change.setText(str(round(emptying_time, 3)))
+                dynamic_rate_of_increase = (data[dynamic_end_index]-data[dynamic_start_index])/emptying_time
+                self.roi_change.setText(str(round(dynamic_rate_of_increase, 3)))
+                self.dr_change.setText("NaN")
+                if "high" in self.type:
+                    pressure_drop = (data[dynamic_start_index]-data[dynamic_end_index])
+                    self.droop_label.setText("Pressure Drop:")
+                    self.dr_change.setText(str(round(pressure_drop, 3)))
+                    self.finaldata = [emptying_time, dynamic_rate_of_increase, dynamic_pressure , "NaN", "NaN", pressure_drop, "NaN"]
+                else:
+                    self.finaldata = [emptying_time, dynamic_rate_of_increase, dynamic_pressure , "NaN", "NaN", "NaN", "NaN"]
+                
+        else:
+            QMessageBox.question(self, 'Notice!', "You need a minimum of 4 lines. Try again.", QMessageBox.Ok)
+            self.process()
+
+    def reset(self):
+        for j in range(11):
+            self.x_labels[j].setText('')       
+        for j in range(11):       
+            self.y_labels[j].setText('')
+     
+    def store(self):
+        filename = 'data.csv'
+        self.finaldata.append(self.file+'.'+self.datatype+self.type)
+        fields = ['emptying_time', 'dynamic_rate_of_increase', 'dynamic_pressure', 'static_pressure', 'droop', 'pressure_drop', '(I dunno what this column is for)']
+        with open(filename, mode = 'a') as csvfile:
+            csvwriter = csv.writer(csvfile) 
+            csvwriter.writerow(self.finaldata)
+            
+    def has_done_past(self):
+        f = open('data.csv')
+        data = pd.read_csv(f)
+        for i in data['name'].to_numpy():
+            if self.type in i and self.datatype in i and self.file in i:
+                return True
+        return False
+
+    def load_old(self):
+        f = open('data.csv')
+        data = pd.read_csv(f)
+        ind = 0
+        names = data['name'].to_numpy()
+        for i in range(0, len(names)):
+            if self.type in names[i] and self.datatype in names[i] and self.file in names[i]:
+                ind = i
         self.static_label.setText("Static:")
         self.dyn_label.setText("Dynamic:")
         self.et_label.setText("Emptying Time:")
         self.droop_label.setText("Droop:")
         self.roi_label.setText("Rate of Increase:")
-
-        done = False
-        while done == False:
-            data_type, ok = QInputDialog.getText(self, 'Select Box', "Data Type (high, injector, or tank)")
-            if ok:
-                if "tank" in data_type:
-                    static_start_index = int(peaksall[0][0])
-                    static_end_index = int(peaksall[1][0])
-                    dynamic_start_index= int(peaksall[2][0])
-                    dynamic_end_index = int(peaksall[3][0])
-                    
-                    #print(static_start_index, static_end_index)
-                    static_condition = data[static_start_index:static_end_index]
-                    static_pressure = mean(static_condition)
-                    self.static_change.setText(str(static_pressure))
-                    dynamic_condition = data[dynamic_start_index: dynamic_end_index]
-                    dynamic_pressure = mean(dynamic_condition)
-                    self.dyn_change.setText(str(dynamic_pressure))
-                    droop = static_pressure - dynamic_pressure
-                    self.dr_change.setText(str(droop))
-                    emptying_time = self.time[int(peaksall[3][0])]-self.time[int(peaksall[2][0])]
-                    self.emp_change.setText(str(emptying_time))
-                    dynamic_rate_of_increase = (data[dynamic_end_index]-data[dynamic_start_index])/emptying_time
-                    self.roi_change.setText(str(dynamic_rate_of_increase))
-                    return [emptying_time, dynamic_rate_of_increase, dynamic_pressure, static_pressure, droop, "NaN", "NaN"]
-                elif "injector" or "high" in data_type:
-                    dynamic_start_index= int(peaksall[0][0])
-                    dynamic_end_index = int(peaksall[1][0])
-                    
-                    dynamic_condition = data[dynamic_start_index: dynamic_end_index]
-                    #print("All Peaks:", peaksall)
-                    self.static_change.setText("NaN")
-                    dynamic_pressure = mean(dynamic_condition)
-                    self.dyn_change.setText(str(dynamic_pressure))
-                    emptying_time = self.time[int(peaksall[1][0])]-self.time[int(peaksall[0][0])]
-                    self.emp_change.setText(str(emptying_time))
-                    dynamic_rate_of_increase = (data[dynamic_end_index]-data[dynamic_start_index])/emptying_time
-                    self.roi_change.setText(str(dynamic_rate_of_increase))
-                    self.dr_change.setText("NaN")
-                    if "high" in data_type:
-                        pressure_drop = (data[dynamic_start_index]-data[dynamic_end_index])
-                        self.droop_label.setText("Pressure Drop:")
-                        self.dr_change.setText(str(pressure_drop))
-                        return [emptying_time, dynamic_rate_of_increase, dynamic_pressure , "NaN", "NaN", pressure_drop, "NaN"]
-                    return [emptying_time, dynamic_rate_of_increase, dynamic_pressure , "NaN", "NaN", "NaN", "NaN"]
-                else:
-                    QMessageBox.question(self, 'Notice!', "Invalid Input. Please re-enter", QMessageBox.Ok)
-            else:
-                QMessageBox.question(self, 'Notice!', "Invalid Input. Please re-enter", QMessageBox.Ok)
-
-    def reset(self):
-        self.x_label_2.setText("")
-        self.x_label_3.setText("")
-        self.x_label_4.setText("")
-        self.x_label_5.setText("")
-        self.x_label_6.setText("")
-        self.x_label_7.setText("")
-        self.x_label_8.setText("")
-        self.x_label_9.setText("")
-        self.x_label_10.setText("")
-        self.x_label_11.setText("")
-        self.x_label_12.setText("")
-        self.y_label_2.setText("")
-        self.y_label_3.setText("")
-        self.y_label_4.setText("")
-        self.y_label_5.setText("")
-        self.y_label_6.setText("")
-        self.y_label_7.setText("")
-        self.y_label_8.setText("")
-        self.y_label_9.setText("")
-        self.y_label_10.setText("")
-        self.y_label_11.setText("")
-        self.y_label_12.setText("")
-     
+        if 'tank' in self.type:
+            self.static_change.setText(str(round(data['static_pressure'][i], 3)))
+            self.dr_change.setText(str(round(data['droop'][i], 3)))
+            self.emp_change.setText(str(round(data['emptying_time'][i], 3)))
+            self.roi_change.setText(str(round(data['dynamic_rate_of_increase'][i], 3)))
+        elif 'injector' or 'high' in self.type:
+            self.static_change.setText("NaN")
+            self.dyn_change.setText(str(round(data['dynamic_pressure'][i], 3)))
+            self.emp_change.setText(str(round(data['emptying_time'][i], 3)))
+            self.roi_change.setText(str(round(data['dynamic_rate_of_increase'][i], 3)))
+            self.dr_change.setText("NaN")
+            if 'high' in self.type:
+                self.droop_label.setText("Pressure Drop:")
+                self.dr_change.setText(str(round(data['pressure_drop'][i], 3)))
 
 app = QApplication([])
 widget = MyWidget()

@@ -584,6 +584,19 @@
       <string>Choose high pressure (don't click)</string>
      </property>
     </widget>
+    <widget class="QPushButton" name="save_data">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>230</y>
+       <width>341</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Save Data</string>
+     </property>
+    </widget>
    </widget>
   </widget>
  </widget>
