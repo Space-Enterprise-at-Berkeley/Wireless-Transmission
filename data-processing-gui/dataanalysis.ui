@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1734</width>
+    <width>1733</width>
     <height>894</height>
    </rect>
   </property>
@@ -28,8 +28,11 @@
      <bold>false</bold>
     </font>
    </property>
+   <property name="mouseTracking">
+    <bool>false</bool>
+   </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>1</number>
    </property>
    <widget class="QWidget" name="single_tab">
     <property name="font">
@@ -595,6 +598,34 @@
      </property>
      <property name="text">
       <string>Save Data</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="multiple_tab">
+    <attribute name="title">
+     <string>Multiple Water Flows</string>
+    </attribute>
+    <widget class="MplWidget" name="multi_graph" native="true">
+     <property name="geometry">
+      <rect>
+       <x>450</x>
+       <y>70</y>
+       <width>1261</width>
+       <height>781</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="mul_sel">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>90</y>
+       <width>75</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>PushButton</string>
      </property>
     </widget>
    </widget>
