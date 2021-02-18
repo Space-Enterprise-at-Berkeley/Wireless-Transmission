@@ -620,12 +620,22 @@
       <rect>
        <x>40</x>
        <y>90</y>
-       <width>75</width>
-       <height>23</height>
+       <width>361</width>
+       <height>41</height>
       </rect>
      </property>
      <property name="text">
-      <string>PushButton</string>
+      <string>Select Flows</string>
+     </property>
+    </widget>
+    <widget class="QTableView" name="tableView">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>280</y>
+       <width>371</width>
+       <height>541</height>
+      </rect>
      </property>
     </widget>
    </widget>

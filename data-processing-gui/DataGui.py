@@ -44,6 +44,7 @@ class MyWidget(QMainWindow):
         self.sel_button_2.clicked.connect(self.sel_injector_data)
         self.sel_button_3.clicked.connect(self.sel_high)
         self.save_data.clicked.connect(self.store)
+        self.save_data.hide();
         self.mul_sel.clicked.connect(self.multiple_sel)
 
     def loadFile(self):
@@ -105,7 +106,7 @@ class MyWidget(QMainWindow):
                     self, 'Notice!', "Invalid Input.", QMessageBox.Ok)
                 self.datatype = 'lox'
         else:
-            self.datatype == 'lox'
+            self.datatype = 'lox'
 
         if self.has_done_past():
             text, ok = QInputDialog.getText(
@@ -125,14 +126,14 @@ class MyWidget(QMainWindow):
         self.add_lines()
         self.edit_lines()
         self.values()
+        self.save_data.show();
 
     def sel_high(self):
 
         self.type = 'high'
         self.datatype = 'high'
         if self.has_done_past():
-            text, ok = QInputDialog.getText(
-                self, 'Select Box', 'You have done this same analysis before. Would you like to see previous results? Y for Yes or N for No and continue the analysis')
+            text, ok = QInputDialog.getText(self, 'Select Box', 'You have done this same analysis before. Would you like to see previous results? Y for Yes or N for No and continue the analysis')
             if ok:
                 if text == 'Y':
                     self.load_old()
@@ -743,7 +744,7 @@ class MyWidget(QMainWindow):
         self.finaldata.append(self.file+'.'+self.datatype+self.type)
         fields = ['emptying_time', 'dynamic_rate_of_increase', 'dynamic_pressure',
                   'static_pressure', 'droop', 'pressure_drop', '(I dunno what this column is for)']
-        with open(filename, mode='a') as csvfile:
+        with open(filename, mode='a',  newline ='') as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow(self.finaldata)
 
@@ -787,57 +788,95 @@ class MyWidget(QMainWindow):
                 self.dr_change.setText(str(round(data['pressure_drop'][i], 3)))
 
     def multiple_sel(self):
-        print('hi')
-
+        f = open('data.csv')
+        data = pd.read_csv(f)
+        data=data.to_numpy()
+        new = np.array([])
+        text, ok = QInputDialog.getText(self, 'Select Box', 'Input the combination of data you would like to input. (Lox tank, lox injector, propane tank, propane injector)')
+        if ok:
+            if "lox" in text:
+                self.type = "lox"
+            else:
+                self.type = "propane"
+            if "tank" in text:
+                self.datatype = "tank"
+            else:
+                self.datatype = "injector"
+            for i in range(0, len(data)):
+                if self.type in data[i][7] and self.datatype in data[i][7]:
+                    new = np.append(new, [data[i]])
+            new = np.reshape(new, (2,8))
+            new = np.rot90(new, 3)
+            self.emptytime = new[0]
+            self.dynamicROI = new[1]
+            self.staticpressure = new[3]
+            self.droop = new[4]
+            self.mul_data = new
+            print(self.staticpressure)
+            print(self.emptytime)
+            self.multiple_plot()
+            
     def multiple_plot(self):
         def sp_vs_et(empty, pressure):
-            plt.plot(pressure, empty, 'o')
-            plt.ylabel('Emptying Time (s)')
-            plt.xlabel('Average Static Pressure (psi)')
-            plt.title('Emptying Time vs Average Static pressure')
-            plt.show()
-        #High Pressure vs Empty
+            self.multi_graph.canvas.axes.clear()
+            self.multi_graph.canvas.axes.plot(empty, pressure, "o")
+            self.multi_graph.canvas.axes.set_xlabel("Pressure")
+            self.multi_graph.canvas.axes.set_ylabel("Emptying time")
+            self.multi_graph.canvas.draw()
+        # High Pressure vs Empty
+
         def hp_vs_et(high, empty):
-            plt.plot(high, empty, 'o')
-            plt.ylabel('Emptying Time (s)')
-            plt.xlabel('Higher Pressure (psi)')
-            plt.title('Emptying Time vs High Pressure')
-            plt.show()
-        #Droop vs High Pressure
+            self.multi_graph.canvas.axes.clear()
+            self.multi_graph.canvas.plot(high, empty, 'o')
+            self.multi_graph.canvas.axes.set_ylabel('Emptying Time (s)')
+            self.multi_graph.canvas.axes.set_xlabel('Higher Pressure (psi)')
+            self.multi_graph.canvas.draw()
+        # Droop vs High Pressure
+
         def dr_vs_high(droop, high):
-            plt.plot(high, droop, 'o')
-            plt.ylabel('Droop')
-            plt.xlabel('High Pressure (psi)')
-            plt.title('Droop vs High pressure')
-            plt.show()
-        #DynamicROI vs High Pressure
+            self.multi_graph.canvas.axes.clear()
+            self.multi_graph.canvas.axes.plot(droop, high, "o")
+            self.multi_graph.canvas.axes.set_ylabel('Droop')
+            self.multi_graph.canvas.axes.set_xlabel('High Pressure (psi)')
+            self.multi_graph.canvas.draw()
+        # DynamicROI vs High Pressure
+
         def dyn_vs_high(dyn, high):
-            plt.plot(dyn, high, 'o')
-            plt.ylabel('High Pressure')
-            plt.xlabel('Dynamic ROI')
-            plt.title('High Pressure vs Dynamic ROI')
-            plt.show()
+            self.multi_graph.canvas.axes.clear()
+            self.multi_graph.canvas.axes.plot(dyn, high, 'o')
+            self.multi_graph.canvas.axes.set_ylabel('Dynamic Pressure')
+            self.multi_graph.canvas.axes.set_xlabel('Dynamic ROI')
+            self.multi_graph.canvas.draw()
 
-        #Calls all the functions and graphs
-        boool = False
-        while not boool:
-            inp = input("Which graph do you want to see? S for Static Pressure and Emptying Time, H for High Pressure and Emptying Time, D for Droop and High Pressure, R for Dynamic ROI and High Pressure")
-            if inp == 'S':
-                sp_vs_et(self.emptytime, self.staticpressure)
-            elif inp == 'H':
-                hp_vs_et(self.highpressure, self.emptytime)
-            elif inp == 'D':
-                dr_vs_high(self.droop, self.highpressure)
-            elif inp == 'R':
-                dyn_vs_high(self.dynamicROI, self.highpressure)
-            elif inp == 'Done':
-                boool = True
-            else:
-                print('Invalid Answer. Try again or say "Done" to quit')
+        # Calls all the functions and graphs
+        text, ok = QInputDialog.getText(self, 'Select Box', "Which graph do you want to see? S for Static Pressure and Emptying Time, H for High Pressure and Emptying Time, D for Droop and High Pressure, R for Dynamic ROI and High Pressure")
+        if ok:
+            if text.lower() == 's':
+                try:
+                    sp_vs_et(self.emptytime, self.staticpressure)
+                except:
+                    QMessageBox.question(self, 'Notice!', "You don't have the required data for your selection.", QMessageBox.Ok)
+
+            elif text.lower() == 'h':
+                try:
+                    hp_vs_et(self.highpressure, self.emptytime)
+                except:
+                    QMessageBox.question(self, 'Notice!', "You don't have the required data for your selection.", QMessageBox.Ok)
+            elif text.lower() == 'd':
+                try:
+                    dr_vs_high(self.droop, self.highpressure)
+                except:
+                    QMessageBox.question(self, 'Notice!', "You don't have the required data for your selection.", QMessageBox.Ok)
+            elif text.lower() == 'r':
+                try:
+                    dyn_vs_high(self.dynamicROI, self.highpressure)
+                except:
+                    QMessageBox.question(self, 'Notice!', "You don't have the required data for your selection.", QMessageBox.Ok)
 
 
-app = QApplication([])
-widget = MyWidget()
-widget.show()
-app.setStyle('Fusion')
-sys.exit(app.exec_())
+if __name__ == '__main__':
+    app = QApplication([])
+    widget = MyWidget()
+    widget.show()
+    app.setStyle('Fusion')
+    sys.exit(app.exec_())
