@@ -4,23 +4,16 @@ import os
 import random
 import sys
 from statistics import mean
-from time import sleep
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy as sc
-from matplotlib.backends.backend_qt5agg import FigureCanvas
-from matplotlib.figure import Figure
-from numpy.fft import irfft, rfft
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.uic import loadUi
 from scipy import signal
 from scipy.interpolate import interp1d
 from scipy.signal import lfilter, savgol_filter
+from influxdb import InfluxDBClient
 
 
 class MyWidget(QMainWindow):
@@ -46,6 +39,9 @@ class MyWidget(QMainWindow):
         self.save_data.clicked.connect(self.store)
         self.save_data.hide();
         self.mul_sel.clicked.connect(self.multiple_sel)
+
+        #DataBase Itemss
+
 
     def loadFile(self):
         self.path = QFileDialog.getOpenFileName()[0]
@@ -790,7 +786,7 @@ class MyWidget(QMainWindow):
     def multiple_sel(self):
         f = open('data.csv')
         data = pd.read_csv(f)
-        data=data.to_numpy()
+        data = data.to_numpy()
         new = np.array([])
         text, ok = QInputDialog.getText(self, 'Select Box', 'Input the combination of data you would like to input. (Lox tank, lox injector, propane tank, propane injector)')
         if ok:
@@ -805,18 +801,19 @@ class MyWidget(QMainWindow):
             for i in range(0, len(data)):
                 if self.type in data[i][7] and self.datatype in data[i][7]:
                     new = np.append(new, [data[i]])
-            new = np.reshape(new, (2,8))
+
+            new = np.reshape(new, (int(new.size/8), 8))
+            print(2)
             new = np.rot90(new, 3)
             self.emptytime = new[0]
             self.dynamicROI = new[1]
             self.staticpressure = new[3]
             self.droop = new[4]
             self.mul_data = new
-            print(self.staticpressure)
-            print(self.emptytime)
             self.multiple_plot()
             
     def multiple_plot(self):
+        print(1)
         def sp_vs_et(empty, pressure):
             self.multi_graph.canvas.axes.clear()
             self.multi_graph.canvas.axes.plot(empty, pressure, "o")
