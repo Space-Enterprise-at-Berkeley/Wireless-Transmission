@@ -13,17 +13,46 @@ from datetime import datetime
 
 # Contains Thread Definitions
 from GUI_threads import *
+from packet import *
+from Sensor_IDs import *
 
-sensor_type_to_name = {
+"""
+GUI.py
+Interpret and graph live telemetry during a test (waterflow, coldflow, static fire). Provides Graphic User Interface
+(GUI) through which the Ground Station operator can view incoming telemetery and send commands to the flight computer
+
+See GUI_threads for class to handle serial input/updating graphs.
+See packet for class to decode from raw strings to packet objects and vice versa.
+See Sensor_IDs for dicts used to associate packet IDs to their respective graphs
+
+Classes:
+
+    MplCanvas
+    StatusGroup
+    Status
+    MainWindow
+    Entry
+
+Functions:
+
+    full_file_name(base_name)
+
+Misc variables:
+
+    N/A
+"""
+
+
+sensor_name_to_text = {
         "low_pt" : "Low Pressure",
         "high_pt" : "High Pressure",
         "temp" : "Temperature"
 }
 
 
-'''Given a base file name BASE, will return the correct full name "BASE_MM-DD-YY_"'''
-def full_file_name(base):
-    return "{}_{}.csv".format(base,datetime.now().strftime('%m-%d-%y__%H_%M'))
+'''Given a base file name BASE_NAME, will return the correct full name "BASE_NAME_YYYY-MM-DD_"'''
+def full_file_name(base_name):
+    return "{}_{}.csv".format(base_name,datetime.now().strftime('%Y-%m-%d__%H_%M'))
 
 class MplCanvas(FigureCanvasQTAgg):
 
@@ -38,12 +67,12 @@ class MplCanvas(FigureCanvasQTAgg):
         super(MplCanvas, self).__init__(fig)
 
 class StatusGroup(QWidget):
-    def __init__(self, name, msg, valve_signals, *args, **kwargs):
+    def __init__(self, name, id, valve_signals, *args, **kwargs):
         super(StatusGroup, self).__init__(*args, **kwargs)
 
         self.valve_signals = valve_signals
         self.name = name
-        self.msg = msg
+        self.id = id
         layout = QGridLayout()
 
         self.open_btn = QPushButton("OPEN")
@@ -63,15 +92,19 @@ class StatusGroup(QWidget):
 
     def open_act(self):
         if self.status.closed:
-            print("Opening " + self.name)
             self.status.switch()
-            self.valve_signals[self.name] = self.msg
+        pack = Packet('1',id=self.id,)
+        self.valve_signals[self.name] = pack.encode_data()
+        print("Opening " + self.name)
+        print(self.valve_signals[self.name])
 
     def close_act(self):
         if not self.status.closed:
-            print("Closing " + self.name)
             self.status.switch()
-            self.valve_signals[self.name] = self.msg
+        pack = Packet('0',id=self.id,)
+        self.valve_signals[self.name] = pack.encode_data()
+        print("Closing " + self.name)
+        print(self.valve_signals[self.name])
 
 class Status(QWidget):
     def __init__(self, *args, **kwargs):
@@ -143,7 +176,16 @@ class MainWindow(QMainWindow):
 
         self.sensor_types = sensor_types.copy()
         self.sensor_nums = sensor_nums.copy()
-
+        self.all_sensors = {}
+        # Defining the order of graphs for each type of data
+        self.all_sensors['low_pt'] = ["lox_injector", "prop_injector", "lox_tank", "prop_tank"]
+        self.all_sensors['high_pt'] = ["pressurant"]
+        self.all_sensors['temp'] = ["temp1","temp2","temp3","temp4","temp5","temp6"]
+        self.all_sensors['load_cell'] = ["load_cell_1","load_cell_1"]
+        # self.all_sensor = ['pressure', 'temperature', 'battery']
+        self.all_sensors["low_pt"] = "pressure"
+        self.all_sensors["high_pt"] = "pressure"
+        self.all_sensors["temp"] = "temperature"
 
         mainlayout = QGridLayout()
 
@@ -165,11 +207,11 @@ class MainWindow(QMainWindow):
         # Dynamically create StatusGroup objects and formatted labels for all valves
 
         valves = ["Pressurant", "LOX GEMS", "Propane GEMS", "LOX 2-WAY",
-        "Propane 2-WAY", "LOX 5-WAY", "Propane 5-WAY"]
-        valve_msgs = ['e', 'c', 'z', 'a', 'x', 'b', 'y']
+        "Propane 2-WAY", "LOX 5-WAY", "Propane 5-WAY", "Both 5-WAY"]
+        valve_ids = [26, 22, 25, 20, 23, 21, 24, 28]
         self.StatusGroups = {}
         for i in range(len(valves)):
-            self.StatusGroups[valves[i]] = StatusGroup(valves[i],valve_msgs[i],self.valve_signals)
+            self.StatusGroups[valves[i]] = StatusGroup(valves[i],valve_ids[i],self.valve_signals)
             self.valve_signals[valves[i]] = 0
 
         label_names = ['Pressurant', 'LOX', 'Propane', 'GEMS', '2-WAY', '5-WAY', 'BOTH 5-WAY']
@@ -197,6 +239,10 @@ class MainWindow(QMainWindow):
         _5way_btn_layout.addWidget(close_5ways_btn)
         _5way_btn_container.setLayout(_5way_btn_layout)
         _5way_btn_container.setMaximumWidth(90)
+        pressure_gems_btn = QPushButton("PRESSURE+GEMS")
+        pressure_gems_btn.setFont(QFont("Helvetica Neue"))
+        pressure_gems_btn.clicked.connect(self.pressure_gems)
+
 
         # Button & Text Fields to control Saving of Data
         self.recording = False
@@ -261,7 +307,10 @@ class MainWindow(QMainWindow):
         valve_layout.addWidget(self.StatusGroups['Propane 5-WAY'],valves_start_row+5,2)
         # row 8
         valve_layout.addWidget(valve_labels['BOTH 5-WAY'],valves_start_row+6,0)
-        valve_layout.addWidget(_5way_btn_container,valves_start_row+6,1,1,2,Qt.AlignCenter)
+        valve_layout.addWidget(_5way_btn_container,valves_start_row+6,1,Qt.AlignCenter)
+        valve_layout.addWidget(pressure_gems_btn,valves_start_row+6,2,Qt.AlignCenter)
+
+
 
         valve_container.setLayout(valve_layout)
         mainlayout.addWidget(valve_container,1,0)
@@ -270,17 +319,22 @@ class MainWindow(QMainWindow):
 
         # Dynamically create the correct number of graphs based off input numbers
         graphWidget = QTabWidget()
-        self.graphs = {}
+        self.graphs = []
         self.figures = {}
-        for sensor in self.sensor_types:
+        self.graph_nums = [4,1,6,4]
+        self.tab_titles = ["Low Pressure", "High Pressure", "Misc.","Temp"]
+        for i in range(4): #self.sensor_types:
             # TODO: make graph allocation more generalized,
             # since we may have more than 6 of a given type of sensor (temp?)
-            self.graphs[sensor] = []
-            num = self.sensor_max_nums[sensor]
+            # self.graphs[sensor_type] = []
+            # num = self.sensor_max_nums[sensor_type]
+            num = self.graph_nums[i]
             tabWidget = QWidget()
             tabGrid = QGridLayout()
             if num == 1:
                 grid_pos = self.generate_pos(1,1)
+            elif num == 2:
+                grid_pos = self.generate_pos(1,2)
             elif num <= 4:
                 grid_pos = self.generate_pos(2,2)
             else:
@@ -288,16 +342,15 @@ class MainWindow(QMainWindow):
 
             # fig = Figure(figsize=(5, 4), dpi=100)
             # self.figures[sensor] = fig
-            for i in range(num):
+            self.graphs.append([])
+            for sensor in range(num):
                 canvas = MplCanvas(self,width=5, height=4, dpi=100)
-                self.graphs[sensor].append(canvas)
+                # Add canvas to a dictionary where key is the unique ID
+                self.graphs[i].append(canvas)
                 row,col = next(grid_pos)
                 tabGrid.addWidget(canvas,row,col)
             tabWidget.setLayout(tabGrid)
-            # else:
-
-            graphWidget.addTab(tabWidget, sensor_type_to_name[sensor])
-        # graphWidget.addTab(QLabel("Beans"),"Beans")
+            graphWidget.addTab(tabWidget, self.tab_titles[i])
         mainlayout.addWidget(graphWidget,1,1,2,1)
 
 
@@ -324,14 +377,28 @@ class MainWindow(QMainWindow):
 
     def toggle_5ways(self):
         if self._5ways_open:
-            self.StatusGroups["LOX 5-WAY"].close_act()
-            self.StatusGroups["Propane 5-WAY"].close_act()
-            print("Closing 5-Way Solenoids")
+            self.StatusGroups["LOX 5-WAY"].status.switch()
+            self.StatusGroups["Propane 5-WAY"].status.switch()
+            self.StatusGroups["Both 5-WAY"].close_act()
+            # print("Closing 5-Way Solenoids")
+            self._5ways_open = False
         else:
-            self.StatusGroups["LOX 5-WAY"].open_act()
-            self.StatusGroups["Propane 5-WAY"].open_act()
-            print("Opening 5-Way Solenoids")
-        self._5ways_open = not self._5ways_open
+            self.StatusGroups["LOX 5-WAY"].status.switch()
+            self.StatusGroups["Propane 5-WAY"].status.switch()
+            self.StatusGroups["Both 5-WAY"].open_act()
+            # print("Opening 5-Way Solenoids")
+            self._5ways_open = True
+
+    def pressure_gems(self):
+
+        # self.StatusGroups["Pressurant"].status.switch()
+        self.StatusGroups["Pressurant"].open_act()
+        time.sleep(0.5)
+        # self.StatusGroups["Propane GEMS"].status.switch()
+        # self.StatusGroups["LOX GEMS"].status.switch()
+        self.StatusGroups["LOX GEMS"].close_act()
+        time.sleep(0.075)
+        self.StatusGroups["Propane GEMS"].close_act()
 
 
     def showTime(self):
@@ -349,10 +416,10 @@ class MainWindow(QMainWindow):
             metadata = ''
             for i in range(2):
                 metadata += "{} {} ".format(self.recording_labels[i].text(),self.recording_line_edits[i].text())
-            self.serialThread.start_saving_waterflow(file_name, metadata)
+            self.serialThread.start_saving_test(file_name, metadata)
             self.save_data_btn.setText("Stop Recording")
         else:
-            self.serialThread.stop_saving_waterflow()
+            self.serialThread.stop_saving_test()
             self.save_data_btn.setText("Start Recording")
             self.recording_display.setHidden(True)
 
@@ -405,7 +472,7 @@ class Entry(QMainWindow):
         label_names = ['Base Filename:', 'Folder:', 'File Path:','# Low PTs:', '# High PTs:', '# Temp Sensors:']
         label_ids = ['base_file', 'folder', 'file_path', 'low_pt', 'high_pt', 'temp']
         self.labels = {}
-        line_edit_defaults = ['waterflow', self.storage_path, '', '4', '1','0']
+        line_edit_defaults = ['waterflow', self.storage_path, '', '4', '1','6']
         self.line_edits = {}
         label_font = QFont("Lucida Grande",14, QFont.Bold)
         for i,name in enumerate(label_names):

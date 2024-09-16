@@ -17,13 +17,43 @@ from PyQt5.QtCore import *
 import matplotlib
 matplotlib.use('Qt5Agg')
 
+import time, traceback, sys, random, select
+import numpy as np
+import csv
+import math
+import random
 
-'''this is NOT finalized - just a placehold for actual values'''
-id_to_sensor = {
-    1: "Propane Tank",
-    1: "LOX Tank",
-    3: "Injector"
-}
+import serial
+import serial.tools.list_ports
+
+# Custom modules
+from Sensor_IDs import *
+from packet import *
+from sensorParsing import *
+
+"""
+GUI_threads.py
+Select and monitor a serial input for incoming telemetry, extra data from packets, and update graphs accordingly
+
+
+Classes:
+
+    MplCanvas
+    StatusGroup
+    Status
+    MainWindow
+    Entry
+
+Functions:
+
+    full_file_name(base_name)
+
+Misc variables:
+
+    N/A
+"""
+
+highPressureConversionFunc = initHighPressure()
 
 initHighPressure()
 
@@ -33,13 +63,13 @@ class SerialThread(QRunnable):
     Main Serial Thread
 
     Args:
-    graphs -
+    graphs - dict with canvas object for each graph in display, keyed by unique packet ID
 
     sensor_nums - a dictionary of the format
-        sensor_type:# in use
+        sensor_type: # in use
 
     valve_signals -  is a dictionary that is kinda acting like a queue...
-    should replace it with an actual queue. Right now it has all values set to 0, and will send the
+    should replace it with an actual queue. Right now it has all values set to 0, and thread will send the
     value as a message if it is non-zero
 
     filename - the name of the file to write the data to
@@ -52,13 +82,13 @@ class SerialThread(QRunnable):
         super(SerialThread, self).__init__()
         self.signals = SerialSignals()
         self.name = "Serial Thread"
+        self.initializing = True
 
         # ---------- Serial Config ----------------------------------
 
         self.sensor_nums = sensor_nums
-        self.graph_titles = {'low_pt': [
-            'Lox Tank', 'Propane Tank', 'Lox Injector', 'Propane Injector'], 'high_pt': ['Pressurant Tank']}
-        self.sensor_types = ['low_pt', 'high_pt']  # 'high_pt', 'temp']
+        self.graph_titles = {'low_pt':['Lox Tank', 'Propane Tank', 'Lox Injector', 'Propane Injector'],'high_pt':['Pressurant Tank']}
+        self.sensor_types = ['low_pt','high_pt']#, 'temp']
 
         self.ser = None
 
@@ -68,7 +98,7 @@ class SerialThread(QRunnable):
 
         self.raw_filename = filename
         self.filename = None
-        self.save_waterflow = False
+        self.save_test = False
         self.headers = None
 
         # ---------- Display Config ---------------------------------
@@ -76,138 +106,66 @@ class SerialThread(QRunnable):
         # generate data to set base line on eacg graph
         n_data = 400
         xdata = list(range(n_data))
-        # [random.randint(0, 10) for i in range(n_data)]
-        ydata = [0 for i in range(n_data)]
+        ydata = [-1 for i in range(n_data)]#[random.randint(0, 10) for i in range(n_data)]
 
-        # Initialize Plot
-        # plot_refs = self.canvas.axes.plot(self.xdata, self.ydata, 'b')
-        # self._plot_ref = plot_refs[0]
+        self.graphs = graphs
 
         # Create canvases based on the number of sensors that are actually in use
         self.plot_ref_dict = {}  # [self._plot_ref]
         self.canvas_dict = {}
 
-        for sensor in self.sensor_types:
-            self.canvas_dict[sensor] = []
-            self.plot_ref_dict[sensor] = []
-            for i in range(len(graphs[sensor])):
-                canvas = graphs[sensor][i]
-                self.canvas_dict[sensor].append(canvas)
+        self.plot_ref_list = []
+        for i in range(len(self.graphs)):
+            self.plot_ref_list.append([])
+            for j in range(len(self.graphs[i])):
+                canvas = self.graphs[i][j]
                 # Get plot reference that can be used to update graph later
-                plot_refs = canvas.axes.plot(xdata, ydata, 'b')
-                self.plot_ref_dict[sensor].append(plot_refs[0])
-                canvas.axes.set_title(self.graph_titles[sensor][i])
+                plot_refs = canvas.axes.plot(xdata, ydata, 'b', label="No Data")
+                self.plot_ref_list[i].append(plot_refs[0])
+                print(i,j)
+                canvas.axes.set_title(tab_graph_titles[i][j]) #TODO need to use "pretty" version of name as title
+                canvas.axes.legend(loc='upper right')
+        self.packet_ids = sensor_id_graph_mapping.keys()
+        # ---------- Simulation Config ---------------------------------
+        self.low_pt_ids = [1,2,3,4]
+        self.high_pt_id = 5
+        self.packet_gen = self.packet_generator()
+        self.simulate = False
+        self.interpolate = True
+        self.debug = False
+
+        # 207 for 12-bit on-board ADC
+        self.high_threshold = 1702887
 
     @pyqtSlot()
     def run(self):
         '''
-        Initialize the independent thread
+        Initialize the independent serial monitoring thread
         '''
 
-        # while SerialThread.running:
-        #     result = random.randint(0, 10)
-        #     self.update_plot(result)
-        #     time.sleep(0.01)
-
-        NUMDATAPOINTS = 400
-        fail_num = 15
-        should_print = True
-
-        print("Starting")
-
-        chosenCom = ""
-        ports = list(serial.tools.list_ports.comports())
-        for p in ports:
-            print(p)
-            if "Arduino" in p.description or "ACM" in p.description or "cu.usbmodem" in p[0]:
-                chosenCom = p[0]
-                print("Chosen COM: {}".format(p))
-        if not chosenCom:
-            self.stop_thread("No Valid Com Found")
-            return
-        print("Chosen COM {}".format(chosenCom))
-        baudrate = 9600
-        print("Baud Rate {}".format(baudrate))
-        try:
-            ser = serial.Serial(chosenCom, baudrate, timeout=3)
-            self.ser = ser
-        except Exception as e:
-            self.stop_thread("Invalid Serial Connection")
-            return
-        ser.flushInput()
-
-        display = True
-        display_all = False
-        repeat = 1
-
-        # filename = input("Which file should the data be written to?\n")
-        print("Writing raw data to: {}".format(self.raw_filename))
-
-        fails = 0
-        currLine = str(ser.readline())
-        start = time.time()
-        while ("low pressure sensors" not in currLine and "low pt" not in currLine):
-            currLine = str(ser.readline())
-            if (currLine != "b''"):
-                print(currLine)
-                if time.time() - start > 1.5:
-                    start = time.time()
-                    print("looking for low pressure input")
-            else:
-                fails += 1
-            if (fails == fail_num):
-                self.stop_thread("Connection Lost")
-                return
-        numLowSensors = self.sensor_nums['low_pt']
-        byteNum = (str(numLowSensors) + "\r\n").encode('utf-8')
-        print("write low sensor nums: {}".format(ser.write(byteNum)))
-
-        currLine = str(ser.readline())
-        start = time.time()
-        while ("high pressure sensors" not in currLine):
-            currLine = str(ser.readline())
-            if time.time() - start > 1.5:
-                start = time.time()
-                print("looking for high pressure input")
-        numHighSensors = self.sensor_nums['high_pt']
-        byteNum = (str(numHighSensors) + "\r\n").encode('utf-8')
-        print("write high sensor nums: {}".format(ser.write(byteNum)))
-
-        total_sensors = numLowSensors + numHighSensors  # TODO: add in temp sensor
-        # sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
-        # There are x low PTs and x high PTs.
-        print(ser.readline().decode("utf-8"))
-        # low1, low2, low3, high1.....
-        self.headers = ser.read_until().decode("utf-8")
-        headerList = self.headers.split(",")
-        print(headerList)
-
-        print("num sensors: {}".format(total_sensors))
-        data_dict = {}
-        toDisplay_dict = {}
-        for sensor in self.sensor_types:
-            data_dict[sensor] = [[] for i in range(self.sensor_nums[sensor])]
-            toDisplay_dict[sensor] = [[] for i in range(total_sensors)]
-
-        with open(self.raw_filename, "a") as f:
-            self.headers = "time elapsed, " + self.headers
-            f.write(self.headers + "\n")
-
-        ser.write("0\r\n".encode('utf-8'))
-
-        # TODO: Figure out why this is crashing on close
-
+        #TODO: Figure out why this is crashing on close
         def getLatestSerialInput():
-            if ser:
-                line = ser.readline()
-                start = time.time()
-                while(ser.in_waiting > 0):
-                    if ser:
-                        line = ser.readline()
-                        if time.time() - start > 1.5:
-                            start = time.time()
-                            print("looking for low pressure input")
-                return line.decode('utf-8').strip()
+            if not self.simulate:
+                if ser:
+                    line = ser.readline()
+                    start = time.time()
+                    while(ser.in_waiting > 0):
+                        if ser:
+                            line = ser.readline()
+                            if time.time() - start > 1.5:
+                                start = time.time()
+                                print("looking for low pressure input")
+                    # print(line)
+                    # a = line.decode('utf-8').strip()
+                    # return a
+                    try:
+                        a = line.decode('utf-8').strip()
+                        return a
+                    except:
+                        print("Decoding Error: ",line)
+                        return ''
+            else:
+                return next(self.packet_gen)
 
         last_first_value = 0
         last_values = [0] * 5
@@ -215,127 +173,266 @@ class SerialThread(QRunnable):
         start = time.time()
         print("starting loop")
         while SerialThread.running:
+
+            # ----------- Initialization -------------
+
+            if self.initializing:
+
+                # Controls how many data points are being displayed on the graph
+                NUMDATAPOINTS = 400
+                fail_num = 15
+                should_print = False
+                display = True
+                display_all = False
+                repeat = 1
+
+                pressure_timer = time.time()
+
+                if not self.simulate:
+                    print("Initializing")
+                    chosenCom = ""
+                    ports = list(serial.tools.list_ports.comports())
+                    for p in ports:
+                        print(p)
+                        if "Arduino" in p.description or "ACM" in p.description or "cu.usbmodem" in p[0]:
+                            chosenCom = p[0]
+                            print("Chosen COM: {}".format(p))
+                    if not chosenCom:
+                        self.stop_thread("No Valid Com Found")
+                        return
+                    print("Chosen COM {}".format(chosenCom))
+                    baudrate = 9600
+                    print("Baud Rate {}".format(baudrate))
+                    try:
+                        ser = serial.Serial(chosenCom, baudrate,timeout=3)
+                        self.ser = ser
+                    except Exception as e:
+                        self.stop_thread("Invalid Serial Connection")
+                        return
+                    ser.flushInput()
+
+                    fails = 0
+                    currLine = str(ser.readline())
+                    start = time.time()
+                    is_packet = False
+                    pack = ''
+                    while not is_packet and "low pressure sensors" not in currLine and "low pt" not in currLine:
+                        currLine = str(ser.readline())
+                        print("Received line: ",currLine)
+                        # currLine = "b'{1,4297496.00,879057.00,6773916.00,6723986.00,4853986.00|a306}\r\r\n'"
+                        pack = Packet(currLine)
+                        # print(type(pack))
+                        # print(pack.get_id())
+                        # print(pack.is_valid)
+                        is_packet = pack.is_valid
+                        print(pack.is_valid)
+                        if (currLine != "b''"):
+                            print(currLine)
+                            if time.time() - start > 1.5:
+                                start = time.time()
+                                print("looking for low pressure input")
+                        else:
+                            fails += 1
+                        if (fails == fail_num):
+                            self.stop_thread("Connection Lost")
+                            return
+
+                    # If data coming in is not a valid packet, need to continue with initialization
+                    if not is_packet:
+                        numLowSensors = self.sensor_nums['low_pt']
+                        byteNum = (str(numLowSensors) + "\r\n").encode('utf-8')
+                        print("write low sensor nums: {}".format(ser.write(byteNum)))
+
+                        currLine = str(ser.readline())
+                        start = time.time()
+                        while ("high pressure sensors" not in currLine):
+                            currLine = str(ser.readline())
+                            if time.time() - start > 1.5:
+                                start = time.time()
+                                print("looking for high pressure input")
+                        numHighSensors = self.sensor_nums['high_pt']
+                        byteNum = (str(numHighSensors)+"\r\n").encode('utf-8')
+                        print("write high sensor nums: {}".format(ser.write(byteNum)))
+
+                        total_sensors = numLowSensors + numHighSensors #TODO: add in temp sensor
+                        #sensors = int(input("How many sensors are connected?\n")) #set to how many sensors are connected
+                        print(ser.readline().decode("utf-8")) # There are x low PTs and x high PTs.
+                        self.headers = ser.read_until().decode("utf-8") # low1, low2, low3, high1.....
+                        headerList = self.headers.split(",")
+                        print(headerList)
+
+                        print("num sensors: {}".format(total_sensors))
+
+                data_dict = {}
+                toDisplay_dict = {}
+                for id in self.packet_ids:
+                    data_dict[id] = []
+                    toDisplay_dict[id] = []
+                    for i in range(len(sensor_id_graph_mapping[id])):
+                        data_dict[id].append([])
+                        toDisplay_dict[id].append([])
+
+
+
+                print("Writing raw data to: {}".format(self.raw_filename))
+                with open(self.raw_filename,"a") as f:
+                    self.headers = "time elapsed, loxTankPressure, propTankPressure, loxInjectorPressure, propInjectorPressure, highPressure, loxTreeTemp, loxHeater, boardVoltage, energyConsumed, loxTankTemp, chamberTemp1, chamberTemp2, chamberTemp3"
+                    f.write(self.headers+"\n")
+
+                # if not self.simulate:
+                #     ser.write("0\r\n".encode('utf-8'))
+
+                self.initializing = False
+
+            # ----------- Main Loop ------------------
+
             # try:
             line = getLatestSerialInput()
-            if ',' in line:
-                values = line.strip().split(',')
+            if self.debug:
+                print(line)
+            pack = Packet(line.strip())
+            time_recevied = time.time()
+            #Record exactly what was received, even if is invalid packet
+            with open(self.raw_filename,"a") as fe:
+                toWrite = str(time_recevied-start)+ "," + line + "\n"
+                fe.write(toWrite)
+                writer = csv.writer(fe,delimiter=",")
 
-                if values[0] == '':
-                    values[0] = str(last_first_value)
-                if len(values) < total_sensors:
-                    print("not enough data, continuing")
-                    continue
-                last_values = values
-                values = [val.strip() for val in values]
-                values = [lowPressureConversion(val) if i != 0 else highPressureConversion(
-                    val) for val, ind in enumerate(values)]
-                last_first_value = values[0]
+            if pack.encoded_message != None:
 
-                if should_print:
-                    print("values: {}".format(values))
 
-                with open(self.raw_filename, "a") as fe:
-                    toWrite = str(time.time() - start) + \
-                        "," + ",".join(values) + "\n"
-                    fe.write(toWrite)
-                    writer = csv.writer(fe, delimiter=",")
-                if self.save_waterflow:
-                    with open(self.filename, "a") as fe:
-                        toWrite = str(
-                            time.time() - self.waterflow_start) + "," + ",".join(values) + "\n"
-                        fe.write(toWrite)
-                        writer = csv.writer(fe, delimiter=",")
+                # TODO - add logic to take other actions depending on packet ID (e.g. )
+                # @Bridget - this is where something could be done like this:
+                #     if pack.get_id() == 3:
+                #           process_data(pack.get_data()[1], time_recevied)
 
-                # iterate through values of incoming data and add to appropriate graps datasets
-                sensor = ''
-                for i in range(len(values)):
-                    # At the start of each series of sensor values, change sensor type & reset j
-                    if i == 0:
-                        sensor = 'high_pt'
-                        j = 0
-                    elif i == 1:
-                        sensor = 'low_pt'
-                        j = 0
-                    # elif: i == 5:
-                    #     pass #TODO: add in for temperature sensors
+                # if the value is -1, that means there is no data for that sensor
+                # Retrieve and update the appropriate datalists and
 
-                    # if the value is -1, that means there is no data for that sensor
-                    # if j >= self.sensor_nums[sensor], that means not all sensor are being used
-                    if values[i] != -1 and j < self.sensor_nums[sensor]:
-                        data = data_dict[sensor]
-                        toDisplay = toDisplay_dict[sensor]
-                        plots = self.plot_ref_dict[sensor]
+                id = pack.get_id()
 
-                        data[j].append(float(values[i]))
-                        toDisplay[j] = data[j][-NUMDATAPOINTS:]
+                if id in sensor_id_graph_mapping.keys():
+
+                    # Saving data to files - how to write all at once for data cominng in a different speeds?
+                    if self.save_test:
+                        with open(self.filename,"a") as fe:
+                            if id == 0:
+                                print_str = "{},{},NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN".format(*(pack.get_data()))
+                            elif id == 1:
+                                print_str = "NaN,NaN,{},{},{},{},{},NaN,NaN,NaN,NaN,NaN,NaN,NaN".format(*(pack.get_data()))
+                            elif id == 2:
+                                print_str = "NaN,NaN,NaN,NaN,NaN,NaN,NaN,{},{},{},NaN,NaN,NaN,NaN".format(*(pack.get_data()))
+                            elif id == 4:
+                                print_str = "NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,{},{},{},{}".format(*(pack.get_data()))
+
+                            toWrite = str(time_recevied-self.test_start)+ "," + print_str + "\n"
+                            fe.write(toWrite)
+                            writer = csv.writer(fe, delimiter=",")
+
+
+                    arrangement_list = sensor_id_graph_mapping[id]
+                    data_list = data_dict[id]
+                    toDisplay_list = toDisplay_dict[id]
+                    if len(arrangement_list) == len(pack.get_data()):
+                        for i in range(len(arrangement_list)):
+                            data = data_list[i]
+                            toDisplay = toDisplay_list[i]
+                            tab, graph, _ = arrangement_list[i]
+                            # print("tab ", tab, "graph ",graph)
+                            # print(len(plot_ref_list))
+                            # print(len(plot_ref_list[0]))
+                            plot = self.plot_ref_list[tab][graph]
+                            val = float(pack.get_data()[i])
+                            if id == 1:
+                                if i == 4:
+                                    print(val)
+                                    if float(val) > self.high_threshold:
+                                        if self.interpolate:
+                                            val = highPressureConversionFunc(float(val))
+                                    else:
+                                        val = 0
+                                else:
+                                    val = lowPressureConversion(float(val))
+                            # if val < 0:
+                            #     if len(data) > 0:
+                            #         val = data[-1]
+                            #     else:
+                            #         val = 0
+                            data.append(val)
+                            toDisplay_list[i] = data[-NUMDATAPOINTS:]
+                            if should_print:
+                                print("Val: {}".format(float(val)))
+                                print(len(data), data)
+                                print(len(toDisplay), toDisplay)
+                                print("Id: {} Sensor: {}".format(id, sensor_id_to_name[id]))
+
+                            if display_all:
+                                # plot.set_ydata(data)
+                                plot.set_xdata(range(len(data)))
+                                print("Displaying all data")
+                            else:
+                                plot.set_ydata(toDisplay)
+                                plot.set_xdata(range(len(toDisplay)))
+
                         if should_print:
-                            print(len(data[j]))
-                            print(len(toDisplay[j]))
-                            print("Sensor: {} Index: {}".format(sensor, j))
+                            should_print = True
 
-                        if display_all:
-                            plots[j].set_ydata(data[j])
-                            plots[j].set_xdata(range(len(data[j])))
-                        else:
-                            plots[j].set_ydata(toDisplay[j])
-                            plots[j].set_xdata(range(len(toDisplay[j])))
+                        # # update graph display & rescale based off data
+                        # if display: #and repeat % 2 == 0:
+                        id = pack.get_id()
+                        arrangement_list = sensor_id_graph_mapping[id]
+                        data_list = data_dict[id]
+                        toDisplay_list = toDisplay_dict[id]
+                        for i in range(len(arrangement_list)):
+                            data = data_list[i]
+                            toDisplay = toDisplay_list[i]
+                            tab, graph, _ = arrangement_list[i]
+                            plot = self.plot_ref_list[tab][graph]
 
-                    j += 1
 
-                if should_print:
-                    should_print = False
-
-                # update graph display & rescale based off data
-                if display and repeat % 2 == 0:
-                    for sensor in self.sensor_types:
-                        canvas_list = self.canvas_dict[sensor]
-                        for i in range(len(canvas_list)):
-
-                            canvas_list[i].axes.relim()
-                            canvas_list[i].axes.autoscale_view()
-
-                        # for num in range(numHighSensors):
-                        #     ax[1,num].relim()
-                        #     ax[1,num].autoscale_view()
-
-                            canvas_list[i].draw()
-                        # self.canvas.flush_events()
-                    repeat = 1
+                            # canvas = self.canvas_dict[pack.get_id()]
+                            canvas = self.graphs[tab][graph]
+                            canvas.axes.relim()
+                            canvas.axes.autoscale_view()
+                            canvas.draw()
+                            leg = canvas.axes.legend(loc="upper right")
+                            leg.get_texts()[0].set_text("{:.1f}".format(sum(toDisplay[-11:-1])/10))
+                        # else:
+                        #     repeat += 1
+                    else:
+                        print("Data indexing error: Data has {} values but expected {}".format(len(pack.get_data()),len(arrangement_list)))
+                        print(pack.get_data())
+                        print(line)
                 else:
-                    repeat += 1
+                    print("Id not in database")
+                    print(line)
 
-                # valve stuff
+                # Sending Commands for valve opening
                 for name in self.valve_signals.keys():
                     if (self.valve_signals[name] != 0):
-                        print(self.valve_signals[name])
-                        byteNum = (
-                            str(self.valve_signals[name]) + "\r\n").encode('utf-8')
-                        ser.write(byteNum)
+                        print("Sending:",self.valve_signals[name])
+                        byteNum = (str(self.valve_signals[name]) + "\r\n").encode('utf-8')
+                        if not self.simulate:
+                            ser.write(byteNum)
                         self.valve_signals[name] = 0
 
-                # data_in = select.select([sys.stdin], [], [], 0.1)[0]
-                # if data_in:
-                #     c = sys.stdin.readline().rstrip()
-                #     if (c == "q"):
-                #         print("Exiting")
-                #         sys.exit(0)
-                #     elif c == '0':
-                #         display = not display
-                #         print("toggling display")
-                #     elif c == 't':
-                #         display = True
-                #     elif c == 'f':
-                #         display = False
-                #     elif c == 'd':
-                #         display_all = not display_all
-                #         print("toggle display all data")
-                #     elif c == "c":
-                #         data = [[] for i in range(sensors)]
-                #         toDisplay = [[] for i in range(sensors)]
-                #     else:
-                #         print("You entered: %s" % c)
+                # Sends out a small packet with interpolated tank vals for LCD
+                # if time.time() - pressure_timer > 3:
+                #     pressure_timer = time.time()
+                #     data = [data_dict[1][0][-1],data_dict[1][1][-1]]
+                #     data = list(map(lambda x: round(x,1),data))
+                #     p = Packet(data,id=30)
+                #     # print(p.encode_data());
+                #     byteNum = (p.encode_data() + "\r\n").encode('utf-8')
+                #     if not self.simulate:
+                #         ser.write(byteNum)
+
+
+
+
             else:
-                print(line)
+                print("SerialThread Error: Invalid Telemetry Packet")
+                print("Error: ",line)
 
             # except Exception as e:
             #     # self.stop_thread("Error in reading loop\nCrash: {}".format(e))
@@ -369,20 +466,53 @@ class SerialThread(QRunnable):
 
         self.canvas.draw()
 
-    def start_saving_waterflow(self, filename, metadata):
+    def start_saving_test(self, filename, metadata):
         if self.headers:
             self.filename = "data/" + filename
-            self.waterflow_start = time.time()
+            self.test_start = time.time()
             print("Writing data to: {}".format(filename))
-            with open(self.filename, "a") as f:
-                f.write(metadata + "\n")
-                f.write(self.headers + "\n")
-            self.save_waterflow = True
+            with open(self.filename,"a") as f:
+                    f.write(metadata+"\n")
+                    f.write(self.headers+"\n")
+            self.save_test = True
         else:
             print("Error: data collection has not started")
 
-    def stop_saving_waterflow(self):
-        self.save_waterflow = False
+    def stop_saving_test(self):
+        self.save_test = False
+
+    def packet_generator(self):
+        funcs = [lambda x: 100*math.cos(x/20), lambda x: 40*math.cos(x/25),
+                 lambda x: 70*math.cos(x/10), lambda x: 65*math.cos(x/15)]
+
+
+        def pt_line(num):
+            if x % 3 == 0:
+                return num + random.uniform(-5,5)
+            else:
+                return num
+
+        funcs[0] = lambda x: 8 + random.uniform(-1,1)
+        funcs[1] = lambda x: pt_line(12)
+
+
+        x = 0
+        while True:
+
+            data = []
+            for j in range(4):
+                data.append(funcs[j](x))
+            data.append(1200)
+            pack = Packet(data,id=1)
+
+            yield pack.encode_data() #"{1,4297496.00,879057.00,6773916.00,6723986.00,4853986.00|a306}" #pack.encode_data()
+            x += 1
+            data = [0,0,0,0]
+            data = list(map(funcs[0],data))
+            pack = Packet(data,id=4)
+            yield pack.encode_data()
+
+
 
 
 class SerialSignals(QObject):
@@ -403,3 +533,8 @@ class SerialSignals(QObject):
     finished = pyqtSignal()
     error = pyqtSignal(tuple)
     data = pyqtSignal(object)
+
+
+
+# TODO: Create a separate Data Processing thread. Maybe add timestamps when data comes in?, and use that
+# when graphing, so that it's not based on the time it actually gets out of the queue?
